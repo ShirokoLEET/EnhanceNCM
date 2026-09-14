@@ -1,0 +1,8 @@
+LIBRARY msimg32
+
+EXPORTS
+    AlphaBlend=_proxy_AlphaBlend@44
+    DllInitialize=_proxy_DllInitialize@8
+    GradientFill=_proxy_GradientFill@24
+    TransparentBlt=_proxy_TransparentBlt@44
+    vSetDdrawflag=_proxy_vSetDdrawflag@0

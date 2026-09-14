@@ -1,0 +1,23 @@
+<?xml version="1.0" encoding="utf-8"?>
+<Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
+  <PropertyGroup Label="Chromatics">
+    <ChromaticsDir>$(ProjectDir)lib\chromatic</ChromaticsDir>
+    <XmakePackagesDir>$(LOCALAPPDATA)\.xmake\packages</XmakePackagesDir>
+  </PropertyGroup>
+  <ItemDefinitionGroup>
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ProjectDir)third_party\cef;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+    </ClCompile>
+  </ItemDefinitionGroup>
+  <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
+    <ClCompile>
+      <AdditionalIncludeDirectories>$(ChromaticsDir)\src;$(XmakePackagesDir)\x\xz\5.8.3\f57ea9d0b443487483ed3135f9507f7a\include;$(XmakePackagesDir)\r\reflect-cpp\v0.25.0\515ceef9924e47019cbcb8df51fd8f00\include;$(XmakePackagesDir)\y\yyjson\0.12.0\2f47bb39ad33499da4199f6e60247e0b\include;$(XmakePackagesDir)\c\ctre\v3.10.0\4deb2fb1936243389c724a3d31b812c9\include;$(XmakePackagesDir)\b\breeze-js-runtime\2026.03.30+4\3f73a9ad419b46ac895e40a0948f6772\include;$(XmakePackagesDir)\b\breeze-quickjs-ng\2026.03.30+4\3f73a9ad419b46ac895e40a0948f6772\include;$(XmakePackagesDir)\y\yalantinglibs\0c98464d\7e7a03dd8c7b46c2b91c0ae3102e3ee6\include;$(XmakePackagesDir)\c\cinatra\d9485603\c1c1724255594bc193513be2dd6d1190\include;$(XmakePackagesDir)\a\asio\1.36.0\2c71d5b5f48a4f2bb982db476214ed2c\include;$(XmakePackagesDir)\a\async_simple\18f3882b\98af4c87dd344b9ba599361cf5fcd22c\include;$(XmakePackagesDir)\i\iguana\1.0.9\7c88cdbeb9aa4bce90e2ed0c1f083785\include;$(XmakePackagesDir)\f\frozen\1.2.0\ebb05b30a6e74dba9981819519433d0d\include;$(XmakePackagesDir)\o\openssl\1.1.1-w\290075b839ee412e80953472c36e007b\include;$(XmakePackagesDir)\c\ctre\v3.10.0\7ffe64bf18e64f068e6cca6a507e36c5\include;$(XmakePackagesDir)\c\concurrentqueue\v1.0.5\73acc2362b434a23b57797a169603348\include;$(XmakePackagesDir)\c\concurrentqueue\v1.0.5\73acc2362b434a23b57797a169603348\include\concurrentqueue\moodycamel;$(XmakePackagesDir)\f\fmt\12.2.0\b36ef53d91b14842882910d96159a1e2\include;$(XmakePackagesDir)\c\capstone\5.0.9\0bf3f0dd77e64370b2e029ae3bc43c40\include;$(XmakePackagesDir)\l\libffi\3.4.8\c7e4419a168c46f69dbafcfadc8e9e61\include;$(XmakePackagesDir)\a\asmjit\2024.05.21\7a9007921bb74e3f8b789f9d4f815408\include;$(XmakePackagesDir)\l\libtcc\2026.03.30+4\77e1a05e70fa4a638f8252f11079d372\include;%(AdditionalIncludeDirectories)</AdditionalIncludeDirectories>
+      <PreprocessorDefinitions>CHROMATIC_WINDOWS;CHROMATIC_X64;LZMA_API_STATIC;YLT_ENABLE_SSL;ASIO_STANDALONE;CINATRA_ENABLE_SSL;FFI_STATIC_BUILD;ASMJIT_STATIC;NOMINMAX;%(PreprocessorDefinitions)</PreprocessorDefinitions>
+      <AdditionalOptions>/utf-8 %(AdditionalOptions)</AdditionalOptions>
+    </ClCompile>
+    <Link>
+      <AdditionalLibraryDirectories>$(ChromaticsDir)\build\windows\x64\releasedbg;$(XmakePackagesDir)\x\xz\5.8.3\f57ea9d0b443487483ed3135f9507f7a\lib;$(XmakePackagesDir)\r\reflect-cpp\v0.25.0\515ceef9924e47019cbcb8df51fd8f00\lib;$(XmakePackagesDir)\y\yyjson\0.12.0\2f47bb39ad33499da4199f6e60247e0b\lib;$(XmakePackagesDir)\b\breeze-js-runtime\2026.03.30+4\3f73a9ad419b46ac895e40a0948f6772\lib;$(XmakePackagesDir)\b\breeze-quickjs-ng\2026.03.30+4\3f73a9ad419b46ac895e40a0948f6772\lib;$(XmakePackagesDir)\o\openssl\1.1.1-w\290075b839ee412e80953472c36e007b\lib;$(XmakePackagesDir)\f\fmt\12.2.0\b36ef53d91b14842882910d96159a1e2\lib;$(XmakePackagesDir)\c\capstone\5.0.9\0bf3f0dd77e64370b2e029ae3bc43c40\lib;$(XmakePackagesDir)\l\libffi\3.4.8\c7e4419a168c46f69dbafcfadc8e9e61\lib;$(XmakePackagesDir)\a\asmjit\2024.05.21\7a9007921bb74e3f8b789f9d4f815408\lib;$(XmakePackagesDir)\l\libtcc\2026.03.30+4\77e1a05e70fa4a638f8252f11079d372\lib;%(AdditionalLibraryDirectories)</AdditionalLibraryDirectories>
+      <AdditionalDependencies>lzma.lib;reflectcpp.lib;yyjson.lib;chromatic-core.lib;breeze-js-runtime.lib;breeze-quickjs-ng.lib;libssl.lib;libcrypto.lib;fmt.lib;capstone.lib;ffi.lib;asmjit.lib;libtcc.lib;kernel32.lib;psapi.lib;dbghelp.lib;ws2_32.lib;user32.lib;crypt32.lib;advapi32.lib;%(AdditionalDependencies)</AdditionalDependencies>
+    </Link>
+  </ItemDefinitionGroup>
+</Project>

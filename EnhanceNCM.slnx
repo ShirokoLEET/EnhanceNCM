@@ -1,0 +1,7 @@
+<Solution>
+  <Configurations>
+    <Platform Name="x64" />
+    <Platform Name="x86" />
+  </Configurations>
+  <Project Path="EnhanceNCM.vcxproj" Id="5a06b481-c0a0-495b-976f-f1cf57ce9f88" />
+</Solution>
