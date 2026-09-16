@@ -1,0 +1,23 @@
+name: 问题反馈
+description: 报告安装、界面或播放问题
+title: '[Bug] '
+body:
+  - type: textarea
+    id: environment
+    attributes:
+      label: 环境
+      description: Windows、网易云客户端和 EnhanceNCM 版本，以及所用主题。
+    validations:
+      required: true
+  - type: textarea
+    id: steps
+    attributes:
+      label: 复现步骤与实际结果
+      description: 请提供最少操作步骤，以及预期结果。
+    validations:
+      required: true
+  - type: textarea
+    id: logs
+    attributes:
+      label: 截图或日志
+      description: 请删除账号标识、Cookie、访问令牌和其他私人信息。

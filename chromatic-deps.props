@@ -1,7 +1,7 @@
 <?xml version="1.0" encoding="utf-8"?>
 <Project xmlns="http://schemas.microsoft.com/developer/msbuild/2003">
   <PropertyGroup Label="Chromatics">
-    <ChromaticsDir>$(ProjectDir)lib\chromatic</ChromaticsDir>
+    <ChromaticsDir>$(ProjectDir)third_party\chromatic</ChromaticsDir>
     <XmakePackagesDir>$(LOCALAPPDATA)\.xmake\packages</XmakePackagesDir>
   </PropertyGroup>
   <ItemDefinitionGroup>

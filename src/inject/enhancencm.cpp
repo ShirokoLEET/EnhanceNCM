@@ -19,9 +19,7 @@
 
 namespace {
 
-std::unique_ptr<chromatic::script::runtime> g_runtime;
 std::atomic<bool> g_stop{false};
-std::thread g_watcher;
 
 std::filesystem::path module_directory(HMODULE module) {
   wchar_t path[MAX_PATH] = {};
@@ -41,27 +39,26 @@ std::string read_file(const std::filesystem::path &path) {
                      std::istreambuf_iterator<char>());
 }
 
-void evaluate(const std::filesystem::path &path, bool reset_first) {
-  if (!g_runtime) {
-    return;
-  }
-
+void evaluate(chromatic::script::runtime &runtime,
+              const std::filesystem::path &path, bool reset_first) {
   std::string content = read_file(path);
   if (content.empty()) {
     return;
   }
 
   if (reset_first) {
-    g_runtime->reset();
+    runtime.reset();
   }
 
-  auto result = g_runtime->eval_script(content, path.string());
-  if (!result) {
-    fmt::print(stderr, "[EnhanceNCM] script error: {}\n", result.error());
-  }
+  // The returned qjs::Value must also be destroyed on the JS thread.
+  runtime.context.post_sync([&]() {
+    auto result = runtime.eval_script(content, path.string());
+    if (!result)
+      fmt::print(stderr, "[EnhanceNCM] script error: {}\n", result.error());
+  });
 }
 
-void watch(const std::filesystem::path &path) {
+void watch(chromatic::script::runtime &runtime, const std::filesystem::path &path) {
   std::error_code ec;
   auto last_write = std::filesystem::file_time_type::min();
   if (std::filesystem::exists(path, ec)) {
@@ -82,7 +79,7 @@ void watch(const std::filesystem::path &path) {
 
     last_write = current;
     std::this_thread::sleep_for(std::chrono::milliseconds(50));
-    evaluate(path, true);
+    if (!g_stop.load()) evaluate(runtime, path, true);
   }
 }
 
@@ -96,26 +93,28 @@ void enhancencm::start(HMODULE module) {
 
   auto script = directory / L"EnhanceNCM.js";
 
-  g_runtime = std::make_unique<chromatic::script::runtime>();
-  g_runtime->reset();
+  // This function runs on DllMain's detached worker. Pin the module for that
+  // worker's lifetime; process teardown must not join threads under loader lock.
+  HMODULE pinned = nullptr;
+  if (!GetModuleHandleExW(GET_MODULE_HANDLE_EX_FLAG_FROM_ADDRESS |
+                            GET_MODULE_HANDLE_EX_FLAG_PIN,
+                        reinterpret_cast<LPCWSTR>(module), &pinned)) return;
+  chromatic::script::runtime runtime;
+  runtime.reset();
 
   if (std::filesystem::exists(script)) {
-    evaluate(script, false);
+    evaluate(runtime, script, false);
   } else {
     fmt::print(stderr, "[EnhanceNCM] waiting for script: {}\n",
                script.string());
   }
 
-  g_stop = false;
-  g_watcher = std::thread([script]() { watch(script); });
+  watch(runtime, script);
 }
 
 void enhancencm::stop() {
   g_stop = true;
-  if (g_watcher.joinable()) {
-    g_watcher.join();
-  }
-  g_runtime.reset();
+  // Safe inside DllMain: no joins, QuickJS calls or heap destruction here.
 }
 
 #endif

@@ -1,0 +1,81 @@
+diff --git a/src/core/script.cc b/src/core/script.cc
+index 63c57aa..96b95a0 100644
+--- a/src/core/script.cc
++++ b/src/core/script.cc
+@@ -26,20 +26,34 @@ void runtime::cleanup() {
+   chromatic::js::NativeExceptionHandler::removeAllCallbacks();
+   chromatic::js::NativeExceptionHandler::disable();
+ }
+-void runtime::reset() {
+-  // Let JS do its cleanup first via dispose callbacks
+-  chromatic::js::ScriptLifecycle::_callDisposeCallbacks();
++void runtime::shutdown() {
++  if (context.js) {
++    context.post_sync([this]() {
++      chromatic::js::ScriptLifecycle::_callDisposeCallbacks();
++      cleanup();
++    });
++  }
+   context.stop_event_loop_in_time(std::chrono::milliseconds(100));
+-  // Then native cleanup
+-  cleanup();
++  // Destroy queued JS closures while their context is still alive.
++  std::function<void()> pending;
++  while (context.task_queue.try_dequeue(pending)) pending = {};
++  context.task_queue_size = 0;
++  // breeze::reset_runtime replaces rt before js. Explicitly release the old
++  // context first, after joining its event thread, to avoid dangling JS shapes.
++  context.js.reset();
++  context.rt.reset();
++}
++runtime::~runtime() { shutdown(); }
++void runtime::reset() {
++  shutdown();
+   context.on_bind.clear();
+   context.on_bind.push_back(
+       [this]() { chromatic_bindAll(context.js->addModule("chromatic")); });
+   context.reset_runtime();
+-  if (auto res = context.eval_string(index_js, "<index>"); !res) {
+-    fmt::print("Failed to eval index.js: {}\n", res.error());
+-    return;
+-  }
++  context.post_sync([this]() {
++    if (auto res = context.eval_string(index_js, "<index>"); !res)
++      fmt::print("Failed to eval index.js: {}\n", res.error());
++  });
+ }
+ std::expected<qjs::Value, std::string>
+ runtime::eval_script(const std::string &script, std::string_view filename) {
+diff --git a/src/core/script.h b/src/core/script.h
+index adcf32b..b3b5fb9 100644
+--- a/src/core/script.h
++++ b/src/core/script.h
+@@ -6,11 +6,12 @@
+ namespace chromatic::script {
+ struct runtime {
+   breeze::script_context context;
+-  ~runtime() { cleanup(); }
++  ~runtime();
++  void shutdown();
+   void cleanup();
+   void reset();
+   std::expected<qjs::Value, std::string>
+   eval_script(const std::string &script, std::string_view filename = "<eval>");
+ };
+
+-}; // namespace chromatic::script
+\ No newline at end of file
++}; // namespace chromatic::script
+diff --git a/src/injectee/config.cc b/src/injectee/config.cc
+index 36552e2..c17c330 100644
+--- a/src/injectee/config.cc
++++ b/src/injectee/config.cc
+@@ -1,7 +1,7 @@
+ #include "config.h"
+
+ #include <cstring>
+-#include <fmt/core.h>
++#include <fmt/format.h>
+ #include <lzma.h>
+ #include <rfl.hpp>
+ #include <rfl/json.hpp>

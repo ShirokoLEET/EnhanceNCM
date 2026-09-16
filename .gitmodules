@@ -1,0 +1,3 @@
+[submodule "third_party/chromatic"]
+	path = third_party/chromatic
+	url = https://github.com/std-microblock/chromatic.git

@@ -1,6 +1,9 @@
 #include "pch.h"
 
 #include "cef_hooks.h"
+#include "theme_files.h"
+#include "artwork_cache.h"
+#include "smtc_timeline.h"
 
 #include "include/capi/cef_app_capi.h"
 #include "include/capi/cef_frame_capi.h"
@@ -15,6 +18,7 @@
 #include <iterator>
 #include <mutex>
 #include <string>
+#include <string_view>
 
 namespace {
 
@@ -30,12 +34,16 @@ using userfree_free_fn = void(CEF_CALLBACK *)(cef_string_userfree_t);
 using utf8_to_utf16_fn = int(CEF_CALLBACK *)(const char *, size_t,
                                              cef_string_utf16_t *);
 using utf16_clear_fn = void(CEF_CALLBACK *)(cef_string_utf16_t *);
+using set_thread_dpi_awareness_context_fn =
+    DPI_AWARENESS_CONTEXT(WINAPI *)(DPI_AWARENESS_CONTEXT);
 
 userfree_free_fn g_userfree_free = nullptr;
 utf8_to_utf16_fn g_utf8_to_utf16 = nullptr;
 utf16_clear_fn g_utf16_clear = nullptr;
 decltype(&cef_v8value_create_object) g_create_object = nullptr;
 decltype(&cef_v8value_create_function) g_create_function = nullptr;
+decltype(&cef_v8value_create_int) g_create_int = nullptr;
+decltype(&cef_v8value_create_string) g_create_string = nullptr;
 
 HMODULE g_self = nullptr;
 
@@ -171,6 +179,86 @@ int CEF_CALLBACK bridge_log_execute(cef_v8handler_t *self,
                                     cef_v8value_t *const *arguments,
                                     cef_v8value_t **retval,
                                     cef_string_t *exception) {
+  if (name && name->str && std::wstring_view(name->str, name->length) == L"updateSystemTimeline") {
+    auto number = [](cef_v8value_t* value) {
+      return value && ((value->is_int && value->is_int(value)) ||
+        (value->is_uint && value->is_uint(value)) || (value->is_double && value->is_double(value)));
+    };
+    auto numeric_value = [](cef_v8value_t* value) -> double {
+      if (value->is_int && value->is_int(value)) return value->get_int_value(value);
+      if (value->is_uint && value->is_uint(value)) return value->get_uint_value(value);
+      return value->get_double_value(value);
+    };
+    if (arguments_count == 3 && number(arguments[0]) && number(arguments[1]) &&
+        arguments[2] && arguments[2]->is_bool && arguments[2]->is_bool(arguments[2])) {
+      enhancencm_smtc::publish(numeric_value(arguments[0]),
+                              numeric_value(arguments[1]),
+                              arguments[2]->get_bool_value(arguments[2]) != 0);
+    } else if (g_utf8_to_utf16) {
+      constexpr char message[] = "Expected timeline position, duration and active state";
+      g_utf8_to_utf16(message, sizeof(message) - 1, exception);
+    }
+    return 1;
+  }
+  if (name && name->str && std::wstring_view(name->str, name->length) == L"cacheLocalArtwork") {
+    try {
+      if (arguments_count != 1 || !arguments[0] || !arguments[0]->is_string(arguments[0]) || !g_create_string)
+        throw std::invalid_argument("Expected PNG artwork");
+      auto data = take_userfree_string(arguments[0]->get_string_value(arguments[0]));
+      auto url = enhancencm_artwork::cache_png(data);
+      cef_string_utf16_t value = {};
+      g_utf8_to_utf16(url.data(), url.size(), &value);
+      *retval = g_create_string(&value);
+      if (g_utf16_clear) g_utf16_clear(&value);
+    } catch (const std::exception& error) {
+      g_utf8_to_utf16(error.what(), std::strlen(error.what()), exception);
+    }
+    return 1;
+  }
+  if (name && name->str &&
+      std::wstring_view(name->str, name->length) == L"cursorPosition") {
+    POINT cursor = {};
+    // CloudMusic's CEF renderer thread is DPI-unaware. Cursor APIs are still
+    // virtualized in that thread, including GetPhysicalCursorPos, so briefly
+    // enter a per-monitor context while reading and then restore CEF's context.
+    static auto set_thread_dpi_context =
+        reinterpret_cast<set_thread_dpi_awareness_context_fn>(GetProcAddress(
+            GetModuleHandleW(L"user32.dll"), "SetThreadDpiAwarenessContext"));
+    DPI_AWARENESS_CONTEXT previous_dpi_context = nullptr;
+    if (set_thread_dpi_context) {
+      previous_dpi_context = set_thread_dpi_context(
+          reinterpret_cast<DPI_AWARENESS_CONTEXT>(-4));
+    }
+    BOOL cursor_available = GetPhysicalCursorPos(&cursor);
+    if (set_thread_dpi_context && previous_dpi_context) {
+      set_thread_dpi_context(previous_dpi_context);
+    }
+    if (cursor_available && g_create_object && g_create_int) {
+      cef_v8value_t *position = g_create_object(nullptr, nullptr);
+      cef_string_utf16_t x_name = {}, y_name = {};
+      g_utf8_to_utf16("x", 1, &x_name);
+      g_utf8_to_utf16("y", 1, &y_name);
+      cef_v8value_t *x = g_create_int(cursor.x);
+      cef_v8value_t *y = g_create_int(cursor.y);
+      if (position && x && y) {
+        position->set_value_bykey(position, &x_name, x, V8_PROPERTY_ATTRIBUTE_NONE);
+        position->set_value_bykey(position, &y_name, y, V8_PROPERTY_ATTRIBUTE_NONE);
+        *retval = position;
+        // set_value_bykey unwraps and consumes each C API wrapper reference.
+        // Releasing x/y again here would use freed wrappers and crash the
+        // renderer before the tray popup can be launched.
+      } else {
+        if (position) position->base.release(&position->base);
+        if (x) x->base.release(&x->base);
+        if (y) y->base.release(&y->base);
+      }
+      if (g_utf16_clear) {
+        g_utf16_clear(&x_name);
+        g_utf16_clear(&y_name);
+      }
+    }
+    return 1;
+  }
   if (arguments_count >= 1 && arguments[0] && arguments[0]->is_string &&
       arguments[0]->is_string(arguments[0])) {
     append_log("[js] " + wide_to_utf8(take_userfree_string(
@@ -201,11 +289,32 @@ void install_bridge(cef_v8context_t *context) {
   g_utf8_to_utf16("EnhanceNCM", 10, &namespace_name);
   cef_string_utf16_t log_name = {};
   g_utf8_to_utf16("log", 3, &log_name);
+  cef_string_utf16_t cursor_name = {};
+  g_utf8_to_utf16("cursorPosition", 14, &cursor_name);
 
   cef_v8value_t *ns = g_create_object(nullptr, nullptr);
   cef_v8value_t *log_fn = g_create_function(&log_name, &wrapper->handler);
   if (ns && log_fn) {
     ns->set_value_bykey(ns, &log_name, log_fn, V8_PROPERTY_ATTRIBUTE_NONE);
+    if (g_create_int) {
+      cef_v8value_t *cursor_fn = g_create_function(&cursor_name, &wrapper->handler);
+      if (cursor_fn)
+        ns->set_value_bykey(ns, &cursor_name, cursor_fn, V8_PROPERTY_ATTRIBUTE_NONE);
+    }
+    if (g_create_string) {
+      cef_string_utf16_t artwork_name = {};
+      g_utf8_to_utf16("cacheLocalArtwork", 17, &artwork_name);
+      auto function = g_create_function(&artwork_name, &wrapper->handler);
+      if (function) ns->set_value_bykey(ns, &artwork_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
+      if (g_utf16_clear) g_utf16_clear(&artwork_name);
+    }
+    {
+      cef_string_utf16_t timeline_name = {};
+      g_utf8_to_utf16("updateSystemTimeline", 20, &timeline_name);
+      auto function = g_create_function(&timeline_name, &wrapper->handler);
+      if (function) ns->set_value_bykey(ns, &timeline_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
+      if (g_utf16_clear) g_utf16_clear(&timeline_name);
+    }
     global->set_value_bykey(global, &namespace_name, ns,
                             V8_PROPERTY_ATTRIBUTE_NONE);
   }
@@ -213,6 +322,7 @@ void install_bridge(cef_v8context_t *context) {
   if (g_utf16_clear) {
     g_utf16_clear(&namespace_name);
     g_utf16_clear(&log_name);
+    g_utf16_clear(&cursor_name);
   }
 }
 
@@ -226,7 +336,15 @@ void inject_page_script(cef_v8context_t *context) {
   std::string script;
   auto directory = module_directory(g_self);
   if (!directory.empty()) {
-    script = read_file(directory / L"EnhanceNCM-page.js");
+    auto sdk = read_file(directory / L"EnhanceNCM-sdk.js");
+    auto host = read_file(directory / L"EnhanceNCM-page.js");
+    if (!sdk.empty() && !host.empty()) {
+      script = sdk + "\nEnhanceNCM._themeCatalog = " +
+          enhancencm_themes::catalog(module_directory(nullptr) / L"EnhanceNCM") +
+          ";\n" + host;
+    } else {
+      append_log("Missing EnhanceNCM-sdk.js or EnhanceNCM-page.js");
+    }
   }
   if (script.empty()) {
     script = kDefaultPageScript;
@@ -263,7 +381,8 @@ void CEF_CALLBACK hooked_on_context_created(
     cef_frame_t *frame, cef_v8context_t *context) {
   if (frame && frame->is_main && frame->is_main(frame)) {
     std::wstring url = take_userfree_string(frame->get_url(frame));
-    if (url.rfind(L"orpheus://", 0) == 0) {
+    if (url.rfind(L"orpheus://", 0) == 0 ||
+        url == L"about:blank#enhancencm") {
       inject_page_script(context);
     }
   }
@@ -394,6 +513,10 @@ void cef_hooks::install(HMODULE self) {
       GetProcAddress(libcef, "cef_v8value_create_object"));
   g_create_function = reinterpret_cast<decltype(g_create_function)>(
       GetProcAddress(libcef, "cef_v8value_create_function"));
+  g_create_int = reinterpret_cast<decltype(g_create_int)>(
+      GetProcAddress(libcef, "cef_v8value_create_int"));
+
+  g_create_string = reinterpret_cast<decltype(g_create_string)>(GetProcAddress(libcef, "cef_v8value_create_string"));
 
   void *original = nullptr;
   if (!patch_iat(L"cloudmusic.dll", "libcef.dll", "cef_execute_process",

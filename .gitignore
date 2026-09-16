@@ -361,3 +361,10 @@ MigrationBackup/
 
 # Fody - auto-generated XML schema
 FodyWeavers.xsd
+# Generated release package and local verification artifacts
+/build/
+/out/
+# Legacy generated paths; current builds write only to build/.
+/EnhanceNCM-page.js
+/EnhanceNCM-sdk.js
+/EnhanceNCM/

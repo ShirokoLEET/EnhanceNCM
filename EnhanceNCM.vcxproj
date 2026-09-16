@@ -76,12 +76,12 @@
   <PropertyGroup Label="UserMacros" />
   <ItemDefinitionGroup Condition="'$(Platform)'=='x64'">
     <Link>
-      <ModuleDefinitionFile>msimg32.x64.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\inject\msimg32.x64.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Platform)'=='Win32'">
     <Link>
-      <ModuleDefinitionFile>msimg32.x86.def</ModuleDefinitionFile>
+      <ModuleDefinitionFile>$(ProjectDir)src\inject\msimg32.x86.def</ModuleDefinitionFile>
     </Link>
   </ItemDefinitionGroup>
   <ItemDefinitionGroup Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">
@@ -169,20 +169,25 @@
     </Manifest>
   </ItemDefinitionGroup>
   <ItemGroup>
-    <ClInclude Include="cef_hooks.h" />
-    <ClInclude Include="enhancencm.h" />
-    <ClInclude Include="framework.h" />
-    <ClInclude Include="msimg32_proxy.h" />
-    <ClInclude Include="pch.h" />
+    <ClInclude Include="src\inject\cef_hooks.h" />
+    <ClInclude Include="src\inject\artwork_cache.h" />
+    <ClInclude Include="src\inject\smtc_timeline.h" />
+    <ClInclude Include="src\inject\theme_files.h" />
+    <ClInclude Include="src\inject\enhancencm.h" />
+    <ClInclude Include="src\inject\framework.h" />
+    <ClInclude Include="src\inject\msimg32_proxy.h" />
+    <ClInclude Include="src\inject\pch.h" />
   </ItemGroup>
   <ItemGroup>
-    <ClCompile Include="cef_hooks.cpp" />
-    <ClCompile Include="dllmain.cpp" />
-    <ClCompile Include="enhancencm.cpp">
+    <ClCompile Include="src\inject\cef_hooks.cpp" />
+    <ClCompile Include="src\inject\artwork_cache.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="src\inject\smtc_timeline.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="src\inject\dllmain.cpp" />
+    <ClCompile Include="src\inject\enhancencm.cpp">
       <PrecompiledHeader>NotUsing</PrecompiledHeader>
     </ClCompile>
-    <ClCompile Include="msimg32_proxy.cpp" />
-    <ClCompile Include="pch.cpp">
+    <ClCompile Include="src\inject\msimg32_proxy.cpp" />
+    <ClCompile Include="src\inject\pch.cpp">
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|x64'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Debug|Win32'">Create</PrecompiledHeader>
       <PrecompiledHeader Condition="'$(Configuration)|$(Platform)'=='Release|Win32'">Create</PrecompiledHeader>
@@ -190,15 +195,46 @@
     </ClCompile>
   </ItemGroup>
   <ItemGroup>
-    <None Include="EnhanceNCM.js" />
+    <None Include="src\inject\EnhanceNCM.js" />
+    <None Include="build\EnhanceNCM-page.js" />
+    <None Include="build\EnhanceNCM-sdk.js" />
+    <None Include="src\host\themes.js" />
+    <None Include="src\host\theme-host.js" />
+    <None Include="build\EnhanceNCM\Spotify\theme.js" />
+    <None Include="src\host\entry.js" />
+    <None Include="src\sdk\startup.js" />
+    <None Include="src\sdk\settings.js" />
+    <None Include="src\sdk\domain\player-persistence.js" />
+    <None Include="src\sdk\transport\native.js" />
+    <None Include="src\sdk\transport\desktop.js" />
+    <None Include="src\sdk\domain\music.js" />
+    <None Include="src\sdk\domain\local-music.js" />
+    <None Include="src\sdk\domain\lyrics.js" />
+    <None Include="src\host\local-files.js" />
+    <None Include="src\sdk\domain\playback.js" />
+    <None Include="src\sdk\domain\audio-source.js" />
+    <None Include="src\sdk\domain\shell.js" />
+    <None Include="src\sdk\domain\library-cache.js" />
+    <None Include="src\sdk\domain\player-session.js" />
+    <None Include="src\sdk\domain\presentation.js" />
+    <None Include="src\host\app.js" />
+    <None Include="src\host\ui\switcher.js" />
+    <None Include="src\themes\spotify\standalone.js" />
+    <None Include="src\themes\spotify\music-styles.js" />
+    <None Include="tools\build-page.js" />
     <None Include="chromatic-deps.props" />
-    <None Include="msimg32.x64.def" />
-    <None Include="msimg32.x86.def" />
+    <None Include="src\inject\msimg32.x64.def" />
+    <None Include="src\inject\msimg32.x86.def" />
   </ItemGroup>
   <Import Project="$(VCTargetsPath)\Microsoft.Cpp.targets" />
   <ImportGroup Label="ExtensionTargets">
   </ImportGroup>
   <Target Name="CopyEnhanceScript" AfterTargets="Build">
-    <Copy SourceFiles="$(ProjectDir)EnhanceNCM.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Exec Command="node &quot;$(ProjectDir)tools\build-page.js&quot;" />
+    <Copy SourceFiles="$(ProjectDir)src\inject\EnhanceNCM.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM-sdk.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\Spotify\theme.js" DestinationFolder="$(OutDir)EnhanceNCM\Spotify" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM-page.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Exec Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Command="node &quot;$(ProjectDir)tools\package-release.js&quot; &quot;$(TargetPath)&quot;" />
   </Target>
 </Project>

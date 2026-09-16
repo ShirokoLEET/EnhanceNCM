@@ -1,0 +1,21 @@
+{
+  "name": "enhancencm",
+  "version": "0.1.0",
+  "private": true,
+  "description": "NetEase CloudMusic desktop theme host and SDK",
+  "engines": {
+    "node": ">=22.13.0"
+  },
+  "scripts": {
+    "build": "node tools/build-page.js",
+    "check": "node tools/check-architecture.js",
+    "test": "node tools/test.js",
+    "test:unit": "node tools/test.js unit",
+    "test:ui": "node tools/test.js ui",
+    "preview": "node tools/preview-music.js",
+    "deps:patch": "node tools/apply-patches.js"
+  },
+  "devDependencies": {
+    "playwright": "1.63.0"
+  }
+}

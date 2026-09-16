@@ -1,0 +1,16 @@
+name: 功能建议
+description: 提议 SDK、主题或宿主功能
+title: '[Feature] '
+body:
+  - type: textarea
+    id: problem
+    attributes:
+      label: 希望解决什么问题？
+    validations:
+      required: true
+  - type: textarea
+    id: proposal
+    attributes:
+      label: 期望行为和使用场景
+    validations:
+      required: true
