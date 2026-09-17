@@ -85,11 +85,7 @@ node tools/preview-music.js
 
 预览默认在 `http://127.0.0.1:53871`，端口可由 `PORT` 环境变量覆盖。它复用生产 renderer、Native 传输适配器及播放 SDK，使用 `tools/preview-native.js` 模拟 `channel.call/registerCall` 和播放事件，不发出声音、不访问真实 Native 或账号。歌单与封面为演示数据。`?offline`、`?empty`、`?unavailable` 分别预览连接失败、空歌单和无播放权限。
 
-`tools/preview-library.js` 提供账号演示数据，可用 `?signedout`、`?noliked`、`?emptycreated`、`?likederror`、`?libraryerror` 检查未登录、空状态和独立错误；`?manycreated&manyliked&sparse` 提供分页和缺失歌曲详情场景。运行 `node --test tests/library-ui.test.js` 验证账号歌单浏览、Native 播放、分页偏移、搜索、喜欢/取消喜欢、刷新重试和过期请求处理，使用相同的 Playwright 环境变量。
-
-安装有 Playwright 及其 Chromium 时运行 `node --test tests/music-ui.test.js`。也可用 `ENHANCENCM_PLAYWRIGHT` 指定 Playwright 模块路径、`ENHANCENCM_CHROMIUM` 指定浏览器可执行文件。测试覆盖导航、搜索、收藏、Native 命令及事件联动、循环与自动切歌、取消加载、停止失败重试、竞态、卸载及 1440/1024/768/390 像素布局，并断言界面不构造 HTMLAudio。截图保存到忽略目录 `out/music-ui/`。这些工具和测试不参与生产脚本打包；通过模拟桥接不代表真实客户端已经出声。
-
-`tests/playback-interaction.test.js` 在鼠标按下与松开之间插入进度事件，检查暂停点击没有丢失。播放进度不能通过 `innerHTML` 重建未变化的播放/静音图标，否则 Chromium 会因按下的 SVG 节点被移除而取消 click。装饰性按钮 SVG 使用 `pointer-events:none`，使按钮本身接收指针事件，即使图标因状态变化被替换也保留点击目标。
+`tools/preview-library.js` 提供账号演示数据，可用 `?signedout`、`?noliked`、`?emptycreated`、`?likederror`、`?libraryerror` 检查未登录、空状态和独立错误；`?manycreated&manyliked&sparse` 提供分页和缺失歌曲详情场景。
 
 `tools/diagnose-playback-live.js` 默认只读当前增强页的播放与按钮状态；显式 `--probe` 测试一次程序点击，`--probe-pointer` 将实机鼠标按住 450ms 再松开，`--probe-pause` 会先恢复当前暂停歌曲以验证播放期间的暂停点击。操作模式会短暂影响播放，结束后在同一歌曲仍有效时恢复原播放/暂停状态，不切歌或重载页面。工具记录指针事件、原生命令、回调、状态事件至忽略目录 `out/playback-diagnostics/`，结束后卸载临时监听。2026-09-14 实机复现修复前只有 pointerdown/pointerup，没有 click 或暂停命令；应用指针目标修复后出现 click、audioplayer.pause 和对应 onPlayState=2。
 
@@ -97,7 +93,7 @@ node tools/preview-music.js
 
 ## 桌面系统集成与封面缓存
 
-主题 API 与完整示例见 `THEME_API.md`、`examples/themes/minimal.js`。播放会话模块不访问 DOM；主题通过 `getState/subscribe` 读取稳定队列快照并绑定按钮。`app.unmount()` 返回 Promise，会等待异步 renderer 的清理；共享会话的视图只取消订阅，宿主在退出时释放会话。`tests/player-session.test.js`、`tests/theme-lifecycle.test.js` 与 `tests/theme-example.test.js` 分别验证无 UI 的播放行为、异步生命周期和切换视图不重启音频。
+主题 API 与完整示例见 `THEME_API.md`、`examples/themes/minimal.js`。播放会话模块不访问 DOM；主题通过 `getState/subscribe` 读取稳定队列快照并绑定按钮。`app.unmount()` 返回 Promise，会等待异步 renderer 的清理；共享会话的视图只取消订阅，宿主在退出时释放会话。`tests/player-session.test.js` 与 `tests/theme-lifecycle.test.js` 分别验证无 UI 的播放行为和异步生命周期。
 
 音频缓存由 `audio-source.js` 管理：每次起播检查当前账号/权益，同页同音质的非试听授权地址在 `expi` 与 5 分钟中的较短期限内复用。用实际码率（kbps）、MD5 和歌曲 ID 调用 `storage.queryNewCacheTrack`，将查询状态传入 `playback.audioCache`；type=4 加载时补齐原版非试听 `playInfoStr` 和 `X-SONG-INFO`。加载完成后，直接记录 Native 的 `openWholeCached/preloadWholeCached`，避免把“查询完整”误报为“已播放缓存”。试听、过期、账号/权益变化和加载失败会避开旧授权复用；查询异常仍可加载授权流。原版实验分组及跨页离线授权流程未照搬，文件缓存不替代授权。
 

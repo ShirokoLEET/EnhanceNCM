@@ -41,14 +41,13 @@ src/
 
 ```sh
 npm ci
-npx playwright install chromium
 npm run check
 npm test
 npm run preview
 ```
 
 - `npm run build`：重新生成 SDK、宿主和主题脚本。
-- `npm run test:unit` / `npm run test:ui`：分别运行单元测试和浏览器测试。
+- `npm run test:unit`：运行 `tests/` 中的 JavaScript 测试。
 - `npm run preview`：启动本地演示，使用模拟账号和音频桥接。
 
 原生 DLL 需要 Visual Studio C++ x64 工具链（当前 v145）、Windows SDK 和 xmake。按[开发说明](docs/DEVELOPMENT.md)初始化 Chromatic 子模块并应用仓库内补丁后，构建 `EnhanceNCM.slnx` 的 **Release / x64**。成功后自动生成完整 `build/` 及校验清单。
@@ -62,4 +61,4 @@ npm run preview
 - [播放恢复](docs/PLAYBACK_PERSISTENCE.md)
 - [贡献指南](CONTRIBUTING.md)
 
-GitHub CI 校验 JavaScript 分层、构建和浏览器测试；原生 DLL 构建及客户端实机验证仍需 Windows 开发环境。第三方 Chromatic 代码保留其原有许可；仓库当前尚未声明项目整体许可证。
+GitHub CI 校验 JavaScript 分层、构建和 `tests/` 中的 JavaScript 测试；原生 DLL 构建及客户端实机验证仍需 Windows 开发环境。第三方 Chromatic 代码保留其原有许可；仓库当前尚未声明项目整体许可证。

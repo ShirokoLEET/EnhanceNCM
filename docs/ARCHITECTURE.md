@@ -59,7 +59,7 @@ Spotify 的视图与交互位于 `spotify/standalone.js`，样式位于 `spotify
 | `src/host/` | `build/EnhanceNCM/EnhanceNCM-page.js` |
 | `src/themes/spotify/` | `build/EnhanceNCM/Themes/Spotify/theme.js` |
 
-`tests/` 中的单元测试验证 SDK 与宿主行为，浏览器测试通过模拟 Native 通道验证交互和异步竞争，原生测试验证目录扫描与 DLL 启动。GitHub CI 的覆盖范围、构建限制与发布命令见 [开发说明](DEVELOPMENT.md)。
+`tests/` 中的 JavaScript 测试验证 SDK 与宿主行为，原生测试验证目录扫描与 DLL 启动。GitHub CI 的覆盖范围、构建限制与发布命令见 [开发说明](DEVELOPMENT.md)。
 
 Chromatic 的项目补丁保存在 `patches/chromatic/`，由 `npm run deps:patch` 检查和应用。详细启动、缓存、播放及生命周期行为保留在 [运行时实现说明](RUNTIME.md)。
 

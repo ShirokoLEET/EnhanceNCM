@@ -21,6 +21,5 @@ jobs:
           node-version: '22.21.0'
           cache: npm
       - run: npm ci --ignore-scripts
-      - run: npx playwright install chromium
       - run: npm run check
       - run: npm test

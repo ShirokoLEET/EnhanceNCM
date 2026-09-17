@@ -6,13 +6,12 @@
 
 ```sh
 npm ci
-npx playwright install chromium
 npm run check
 npm test
 npm run preview
 ```
 
-`npm test` 会先构建脚本，然后运行全部 JavaScript 测试。原生目录扫描测试仅在 `out/theme-files-test.exe` 已编译时运行，否则报告 skip；CI 不声称覆盖原生层。可通过 `ENHANCENCM_PLAYWRIGHT` 和 `ENHANCENCM_CHROMIUM` 复用已有测试工具。
+`npm test` 会先构建脚本，然后运行 `tests/` 中的 JavaScript 测试。原生目录扫描测试仅在 `out/theme-files-test.exe` 已编译时运行，否则报告 skip；CI 不声称覆盖原生层。
 
 ## 原生构建
 

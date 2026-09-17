@@ -11,7 +11,6 @@
     "check": "node tools/check-architecture.js",
     "test": "node tools/test.js",
     "test:unit": "node tools/test.js unit",
-    "test:ui": "node tools/test.js ui",
     "preview": "node tools/preview-music.js",
     "deps:patch": "node tools/apply-patches.js"
   },
@@ -35,7 +34,6 @@
     "gl-matrix": "4.0.0-beta.2",
     "jotai": "2.15.2",
     "lightningcss": "1.30.1",
-    "playwright": "1.63.0",
     "react": "19.2.4",
     "react-dom": "19.2.4",
     "react-toastify": "^11.0.5",
