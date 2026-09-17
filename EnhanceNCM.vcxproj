@@ -171,6 +171,7 @@
   <ItemGroup>
     <ClInclude Include="src\inject\cef_hooks.h" />
     <ClInclude Include="src\inject\artwork_cache.h" />
+    <ClInclude Include="src\inject\now_playing_service.h" />
     <ClInclude Include="src\inject\smtc_timeline.h" />
     <ClInclude Include="src\inject\theme_files.h" />
     <ClInclude Include="src\inject\enhancencm.h" />
@@ -181,6 +182,7 @@
   <ItemGroup>
     <ClCompile Include="src\inject\cef_hooks.cpp" />
     <ClCompile Include="src\inject\artwork_cache.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
+    <ClCompile Include="src\inject\now_playing_service.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="src\inject\smtc_timeline.cpp"><PrecompiledHeader>NotUsing</PrecompiledHeader></ClCompile>
     <ClCompile Include="src\inject\dllmain.cpp" />
     <ClCompile Include="src\inject\enhancencm.cpp">
@@ -196,11 +198,11 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\inject\EnhanceNCM.js" />
-    <None Include="build\EnhanceNCM-page.js" />
-    <None Include="build\EnhanceNCM-sdk.js" />
+    <None Include="build\EnhanceNCM\EnhanceNCM-page.js" />
+    <None Include="build\EnhanceNCM\EnhanceNCM-sdk.js" />
     <None Include="src\host\themes.js" />
     <None Include="src\host\theme-host.js" />
-    <None Include="build\EnhanceNCM\Spotify\theme.js" />
+    <None Include="build\EnhanceNCM\Themes\Spotify\theme.js" />
     <None Include="src\host\entry.js" />
     <None Include="src\sdk\startup.js" />
     <None Include="src\sdk\settings.js" />
@@ -216,6 +218,7 @@
     <None Include="src\sdk\domain\shell.js" />
     <None Include="src\sdk\domain\library-cache.js" />
     <None Include="src\sdk\domain\player-session.js" />
+    <None Include="src\sdk\domain\now-playing.js" />
     <None Include="src\sdk\domain\presentation.js" />
     <None Include="src\host\app.js" />
     <None Include="src\host\ui\switcher.js" />
@@ -231,10 +234,11 @@
   </ImportGroup>
   <Target Name="CopyEnhanceScript" AfterTargets="Build">
     <Exec Command="node &quot;$(ProjectDir)tools\build-page.js&quot;" />
-    <Copy SourceFiles="$(ProjectDir)src\inject\EnhanceNCM.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM-sdk.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\Spotify\theme.js" DestinationFolder="$(OutDir)EnhanceNCM\Spotify" SkipUnchangedFiles="true" />
-    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM-page.js" DestinationFolder="$(OutDir)" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)src\inject\EnhanceNCM.js" DestinationFolder="$(OutDir)EnhanceNCM" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\EnhanceNCM-sdk.js" DestinationFolder="$(OutDir)EnhanceNCM" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\Themes\Spotify\theme.js" DestinationFolder="$(OutDir)EnhanceNCM\Themes\Spotify" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\Themes\AMLL\theme.js;$(ProjectDir)build\EnhanceNCM\Themes\AMLL\LICENSE;$(ProjectDir)build\EnhanceNCM\Themes\AMLL\NOTICE.md" DestinationFolder="$(OutDir)EnhanceNCM\Themes\AMLL" SkipUnchangedFiles="true" />
+    <Copy SourceFiles="$(ProjectDir)build\EnhanceNCM\EnhanceNCM-page.js" DestinationFolder="$(OutDir)EnhanceNCM" SkipUnchangedFiles="true" />
     <Exec Condition="'$(Configuration)|$(Platform)'=='Release|x64'" Command="node &quot;$(ProjectDir)tools\package-release.js&quot; &quot;$(TargetPath)&quot;" />
   </Target>
 </Project>

@@ -1,5 +1,6 @@
 const assert = require("node:assert/strict");
 const fs = require("node:fs");
+const path = require("node:path");
 const test = require("node:test");
 const vm = require("node:vm");
 const { bundle, output } = require("../tools/build-page.js");
@@ -11,6 +12,14 @@ test("build artifact matches the layered page sources", () => {
   assert.equal(fs.readFileSync(output, "utf8"), build.hostBundle());
   assert.equal(fs.readFileSync(build.sdkOutput, "utf8"), build.sdkBundle());
   assert.equal(fs.readFileSync(build.themeOutput, "utf8"), build.themeBundle());
+});
+
+test("runtime JavaScript artifacts stay under the EnhanceNCM directory", () => {
+  const build = require("../tools/build-page.js");
+  assert.equal(path.dirname(output), build.runtimeRoot);
+  assert.equal(path.dirname(build.sdkOutput), build.runtimeRoot);
+  assert.equal(path.dirname(build.themeOutput), path.join(build.themesRoot, "Spotify"));
+  assert.equal(path.dirname(build.amllOutput), path.join(build.themesRoot, "AMLL"));
 });
 
 function sdk(responses, calls) {

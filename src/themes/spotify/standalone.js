@@ -30,6 +30,7 @@
     arrow: '<path d="m9 5 7 7-7 7"/>',
     back: '<path d="m10 5-7 7 7 7M3 12h18"/>',
     refresh: '<path d="M20 7a9 9 0 1 0 1 8M20 2v6h-6"/>',
+    settings: '<path d="M12 3.5 13.7 5a7.6 7.6 0 0 1 1.9.8l2.2-.6 1.5 1.5-.6 2.2c.3.6.6 1.2.8 1.9l1.5 1.7v2.1l-1.5 1.7a7.6 7.6 0 0 1-.8 1.9l.6 2.2-1.5 1.5-2.2-.6a7.6 7.6 0 0 1-1.9.8L12 21l-1.7-1.7a7.6 7.6 0 0 1-1.9-.8l-2.2.6-1.5-1.5.6-2.2a7.6 7.6 0 0 1-.8-1.9L3 12l1.5-1.7a7.6 7.6 0 0 1 .8-1.9l-.6-2.2 1.5-1.5 2.2.6a7.6 7.6 0 0 1 1.9-.8L12 3.5Z"/><circle cx="12" cy="12" r="3"/>',
     plus: '<path d="M12 5v14M5 12h14"/>',
     close: '<path d="m6 6 12 12M18 6 6 18"/>'
   };
@@ -56,7 +57,7 @@
     shadow.host.style.cssText = "position:fixed;inset:0;z-index:2147483646;";
     shadow.innerHTML = '<style>' + namespace._musicStyles + '</style>' + `
       <div class="app">
-        <header class="window-bar" data-window-drag><span id="shell-status" role="status" aria-live="polite"></span><div class="window-actions"><button class="icon-button" id="refresh" title="刷新界面" aria-label="刷新界面">${icon("refresh")}</button><button class="original-button" id="original" aria-label="返回网易云原版" title="返回网易云原版">${icon("back")}</button></div><div class="window-buttons"><button id="window-minimize" class="window-button" aria-label="最小化" title="最小化"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button><button id="window-maximize" class="window-button" aria-label="最大化" title="最大化"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12"/></svg></button><button id="window-close" class="window-button" aria-label="关闭网易云音乐" title="退出网易云音乐">${icon("close")}</button></div></header>
+        <header class="window-bar" data-window-drag><span id="shell-status" role="status" aria-live="polite"></span><div class="window-actions"><button class="icon-button" id="settings" title="EnhanceNCM 设置" aria-label="EnhanceNCM 设置">${icon("settings")}</button><button class="icon-button" id="refresh" title="刷新界面" aria-label="刷新界面">${icon("refresh")}</button><button class="original-button" id="original" aria-label="返回网易云原版" title="返回网易云原版">${icon("back")}</button></div><div class="window-buttons"><button id="window-minimize" class="window-button" aria-label="最小化" title="最小化"><svg viewBox="0 0 24 24" aria-hidden="true"><path d="M6 12h12"/></svg></button><button id="window-maximize" class="window-button" aria-label="最大化" title="最大化"><svg viewBox="0 0 24 24" aria-hidden="true"><rect x="6" y="6" width="12" height="12"/></svg></button><button id="window-close" class="window-button" aria-label="关闭网易云音乐" title="退出网易云音乐">${icon("close")}</button></div></header>
         <div class="resize-handles" aria-hidden="true"><div data-resize="topleft"></div><div data-resize="topright"></div><div data-resize="bottomleft"></div><div data-resize="bottomright"></div><div data-resize="right"></div></div>
         <aside class="sidebar" aria-label="音乐导航">
           <div class="brand"><span class="brand-icon">${icon("music")}</span><span>EnhanceNCM</span></div>
@@ -1112,7 +1113,7 @@
     async function navigate(action) {
       if (leaving) return;
       leaving = true; ++playVersion; state.pending = false;
-      $("#refresh").disabled = $("#original").disabled = true;
+      $("#settings").disabled = $("#refresh").disabled = $("#original").disabled = true;
       try {
         if (persistence) await persistence.prepareExit();
         await player.stop();
@@ -1122,7 +1123,7 @@
       catch (error) { if (persistence) persistence.cancelExit(); if (!state.disposed) playbackError(error); }
       finally {
         leaving = false;
-        if (!state.disposed) $("#refresh").disabled = $("#original").disabled = false;
+        if (!state.disposed) $("#settings").disabled = $("#refresh").disabled = $("#original").disabled = false;
       }
     }
     shadow.addEventListener("click", function (event) {
@@ -1185,6 +1186,11 @@
     $("#mute").onclick = function () { setVolume(Number($("#volume").value) ? 0 : previousVolume); };
     $("#queue-toggle").onclick = function () { toggleQueue($("#queue-panel").hidden); };
     $("#close-queue").onclick = function () { toggleQueue(false); };
+    $("#settings").onclick = function () {
+      if (!namespace.ui || typeof namespace.ui.openSettings !== "function") return;
+      try { namespace.ui.openSettings(); }
+      catch (error) { shellError(error); }
+    };
     $("#refresh").onclick = function () { navigate(function () { root.location.reload(); }); };
     $("#original").onclick = function () { navigate(function () { namespace.ui.setMode("original"); }); };
     $("#window-minimize").onclick = function () { windowAction(windowControls.minimize); };
@@ -1237,12 +1243,11 @@
     root.addEventListener("pagehide", pageHide);
     $("#date").textContent = new Date().toLocaleDateString("zh-CN", { month: "long", day: "numeric", weekday: "long" });
     drawAlbums(); drawTracks(); syncPlayer(player.getState()); loadHomePlaylists();
-    restoreSession().catch(function () {}).then(async function () {
+    restoreSession().catch(function () {}).then(function () {
       if (state.disposed) return;
-      // Unlike the SDK's five-minute response cache, a page snapshot always
-      // revalidates in the background while its old rows remain on screen.
-      if (snapshotOwner && options.sdk.cache)
-        await options.sdk.cache.refresh().catch(function () {});
+      // Keep the restored snapshot in the foreground while these requests are
+      // pending. The SDK response cache may satisfy them without a network
+      // round trip; an explicit refresh still invalidates it first.
       if (!state.disposed) { loadPlaylist(state.playlistId); loadLibrary(); }
     });
     namespace.app.whenReady(5000).then(function () {

@@ -11,10 +11,11 @@ function packageRelease(dllPath) {
     throw new Error('Release DLL must be a Windows x64 PE image');
   build();
   const project = path.join(__dirname, '..');
-  const files = ['msimg32.dll', 'EnhanceNCM.js', 'EnhanceNCM-sdk.js', 'EnhanceNCM-page.js',
-    'EnhanceNCM/Spotify/theme.js', '安装说明.txt'];
+  const files = ['msimg32.dll', 'EnhanceNCM/EnhanceNCM.js', 'EnhanceNCM/EnhanceNCM-sdk.js', 'EnhanceNCM/EnhanceNCM-page.js',
+    'EnhanceNCM/Themes/Spotify/theme.js', 'EnhanceNCM/Themes/AMLL/theme.js', 'EnhanceNCM/Themes/AMLL/LICENSE', 'EnhanceNCM/Themes/AMLL/NOTICE.md', '安装说明.txt'];
   fs.copyFileSync(dllPath, path.join(buildRoot, 'msimg32.dll'));
-  fs.copyFileSync(path.join(project, 'src/inject/EnhanceNCM.js'), path.join(buildRoot, 'EnhanceNCM.js'));
+  fs.mkdirSync(path.join(buildRoot, 'EnhanceNCM'), { recursive: true });
+  fs.copyFileSync(path.join(project, 'src/inject/EnhanceNCM.js'), path.join(buildRoot, 'EnhanceNCM/EnhanceNCM.js'));
   fs.copyFileSync(path.join(project, 'docs/INSTALL.md'), path.join(buildRoot, '安装说明.txt'));
   const manifest = {
     architecture: 'x64', clientVersionTested: '3.1.39.205426',

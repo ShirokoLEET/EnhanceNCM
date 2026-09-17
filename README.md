@@ -4,9 +4,11 @@
 
 支持账号歌单、全站歌曲搜索、个性化推荐、歌词、播放队列和歌曲右键操作。音频通过客户端原生播放器播放；可用音源仍取决于账号权限。
 
+设置中还可选开启兼容 `now-playing-service` 的 NowPlaying服务：网页 API 监听本机 `http://127.0.0.1:9863`，直播软件文件输出写入安装目录的 `EnhanceNCM/Outputs/`，开关配置保存在 `EnhanceNCM/Settings/settings.json`，无需另行启动 Java 服务。
+
 ## 安装
 
-退出网易云后，将发布包中的全部文件复制到 `cloudmusic.exe` 同级目录。自行构建时复制 `build/` **里面的内容**，不要嵌套外层目录。所需文件包括一个 `msimg32.dll`、公共脚本及 `EnhanceNCM/Spotify/theme.js`。
+退出网易云后，将发布包中的 `msimg32.dll` 和 `EnhanceNCM/` 文件夹复制到 `cloudmusic.exe` 同级目录。自行构建时复制 `build/` **里面的运行文件**，不要嵌套外层目录。所需文件包括一个 `msimg32.dll`、`EnhanceNCM/` 下的公共脚本及 `EnhanceNCM/Themes/` 下的主题。
 
 已验证的客户端版本：Windows x64 **3.1.39.205426**。需要系统安装新版 Microsoft Visual C++ x64 运行库。原版右上角 **E → 界面模式** 可切换主题。[完整安装与卸载说明](docs/INSTALL.md)
 
@@ -26,10 +28,10 @@ src/
 
 | 层 | 职责 | 产物 |
 | --- | --- | --- |
-| Inject | 将公共脚本和主题目录信息接入客户端 | `msimg32.dll`、`EnhanceNCM.js` |
-| SDK | 提供主题无关的账号、歌曲、歌单、播放与存储能力 | `EnhanceNCM-sdk.js` |
-| Host | 选择并挂载主题，管理入口、恢复与退出 | `EnhanceNCM-page.js` |
-| Theme | 使用 SDK 渲染界面 | `EnhanceNCM/<主题>/theme.js` |
+| Inject | 将公共脚本和主题目录信息接入客户端 | `msimg32.dll`、`EnhanceNCM/EnhanceNCM.js` |
+| SDK | 提供主题无关的账号、歌曲、歌单、播放与存储能力 | `EnhanceNCM/EnhanceNCM-sdk.js` |
+| Host | 选择并挂载主题，管理入口、恢复与退出 | `EnhanceNCM/EnhanceNCM-page.js` |
+| Theme | 使用 SDK 渲染界面 | `EnhanceNCM/Themes/<主题>/theme.js` |
 
 构建配置位于根目录，`tools/` 提供构建和诊断工具，`tests/` 保存测试，`docs/` 保存设计说明。`build/` 是发布目录，`out/`、`x64/` 是本地产物，不提交 Git。
 

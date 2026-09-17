@@ -2,20 +2,21 @@
 
 主题面向页面侧 `EnhanceNCM.sdk` 编写，不需要复制当前内置界面的播放器逻辑。原生桥接、账号请求、缓存和播放业务保留在 SDK；布局、配色、图标、列表展示和交互反馈由主题决定。
 
-主题现在从网易云音乐安装目录的 `EnhanceNCM` 文件夹自动发现。每个直接子文件夹是一套主题，入口固定为 UTF-8 的 `theme.js`（普通 JavaScript，不是 ES module；单文件上限 8 MiB）。文件夹名就是主题 ID 和列表名称，支持中文与空格；`Spotify` 特别保留旧 ID `spotify`。不需要修改注册表、宿主配置或重新编译 DLL。
+主题现在从网易云音乐安装目录的 `EnhanceNCM/Themes` 文件夹自动发现。每个直接子文件夹是一套主题，入口固定为 UTF-8 的 `theme.js`（普通 JavaScript，不是 ES module；单文件上限 8 MiB）。文件夹名就是主题 ID 和列表名称，支持中文与空格；`Spotify` 特别保留旧 ID `spotify`。不需要修改注册表、宿主配置或重新编译 DLL。
 
 ```text
 C:\Program Files\NetEase\CloudMusic\
   msimg32.dll
-  EnhanceNCM.js                 Chromatic 侧脚本，保持独立
-  EnhanceNCM-sdk.js             公共 API、播放、缓存与窗口服务
-  EnhanceNCM-page.js            页面入口、主题管理、通用设置和托盘
   EnhanceNCM\
-    Spotify\theme.js          原有页面，现命名为 Spotify
-    我的主题\theme.js
+    EnhanceNCM.js               Chromatic 侧脚本，保持独立
+    EnhanceNCM-sdk.js           公共 API、播放、缓存与窗口服务
+    EnhanceNCM-page.js          页面入口、主题管理、通用设置和托盘
+    Themes\
+      Spotify\theme.js          原有页面，现命名为 Spotify
+      我的主题\theme.js
 ```
 
-在网易云原版中点击右上方 **E → 界面模式**。进入主题后不显示 E 和宿主设置浮层；Spotify 可使用标题栏的“返回网易云原版”按钮，再切换其他主题。放入新文件夹后点击“重新扫描主题（刷新页面）”，或重启客户端；每次主页面上下文创建都会重新读取目录。当前不使用文件系统实时监听。没有入口或入口不可读的文件夹仍显示在列表中，并注明错误。
+在网易云原版中点击右上方 **E → 界面模式**。进入主题后不显示 E；Spotify 和 AMLL 的窗口栏都提供“EnhanceNCM 设置”入口，可直接打开宿主设置浮层。Spotify 也可使用标题栏的“返回网易云原版”按钮，再切换其他主题。放入新文件夹后点击“重新扫描主题（刷新页面）”，或重启客户端；每次主页面上下文创建都会重新读取目录。当前不使用文件系统实时监听。没有入口或入口不可读的文件夹仍显示在列表中，并注明错误。
 
 选择主题会等待旧 renderer 清理、保存主题 ID，再重建页面加载所选主题。第三方主题的顶层代码仅在被选中时执行。页面重建会结束当前 JS 播放会话；Spotify 默认恢复歌曲、队列、进度和音量，并保持暂停。目录主题切换不承诺无缝播放。主题删除、语法错误或注册失败会显示错误或通过启动恢复返回原版，保留主题 ID 便于检查；重新进入设置选择可用主题即可。
 
@@ -34,7 +35,7 @@ EnhanceNCM.themes.register({
 });
 ```
 
-每个入口必须同步调用一次 `register`；`mount` 可以异步返回清理函数。CSS 可通过 ShadowRoot 内的 `<style>` 提供，资源可内联；宿主目前不提供文件夹相对 URL 的静态资源服务，也不解析 HTML 入口或 theme.json。完整可安装示例在 `examples/themes/Minimal/theme.js`，复制整个 `Minimal` 文件夹即可。E 设置由原版页面宿主管理，主题不显示此入口。自定义主题应提供返回原版的操作：先清理播放会话，再调用 `EnhanceNCM.ui.setMode("original")`。
+每个入口必须同步调用一次 `register`；`mount` 可以异步返回清理函数。CSS 可通过 ShadowRoot 内的 `<style>` 提供，资源可内联；宿主目前不提供文件夹相对 URL 的静态资源服务，也不解析 HTML 入口或 theme.json。完整可安装示例在 `examples/themes/Minimal/theme.js`，将整个 `Minimal` 文件夹复制到 `EnhanceNCM/Themes` 即可。设置浮层由页面宿主管理；主题可通过 `EnhanceNCM.ui.openSettings()` 打开它，并应提供返回原版的操作：先清理播放会话，再调用 `EnhanceNCM.ui.setMode("original")`。
 
 公开管理 API：`EnhanceNCM.themes.list()` 返回只读的 `{id,name,error}` 列表，`select(id)` 选择并进入主题，`refresh()` 重载并扫描，`getActive()` 返回本页已挂载的主题 ID。`EnhanceNCM.ui.getSettings()` 仍兼容 `{version,mode,themeId}`。
 
@@ -114,7 +115,7 @@ unsubscribe();
 | `pause()` / `resume()` | 显式原生暂停/继续 |
 | `next()` | 下一首；普通队列手动到末尾会回到开头，动态队列请求下一批 |
 | `previous()` | 当前已播放超过 3 秒则回到开头，否则上一首 |
-| `setShuffle(boolean)` | 设置随机；存在动态提供函数时保持服务端顺序 |
+| `setShuffle(boolean)` | 有限队列开启时先一次性打乱播放顺序，之后上下首沿该顺序移动；关闭时恢复原顺序。存在动态提供函数时保持服务端顺序 |
 | `setRepeatOne(boolean)` | 仅自动结束时重复当前歌曲；手动下一首仍切歌 |
 | `seek(seconds)` | 提交定位，最终进度由原生事件确认 |
 | `setVolume(0..1)` / `toggleMute()` | 设置音量，静音后恢复最近非零音量 |

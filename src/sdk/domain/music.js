@@ -373,7 +373,12 @@
     audioCache: Object.freeze({ getState: namespace._audioSource.getState, clearMemory: namespace._audioSource.clearMemory }),
     player: namespace._player,
     persistence: namespace._playerPersistence,
-    settings: Object.freeze({ getPlayback: namespace._settings.playback, setPlayback: namespace._settings.updatePlayback }),
+    settings: Object.freeze({
+      getPlayback: namespace._settings.playback,
+      setPlayback: namespace._settings.updatePlayback,
+      getNowPlaying: namespace._settings.nowPlaying,
+      setNowPlaying: namespace._settings.updateNowPlaying
+    }),
     librarySnapshots: namespace._libraryCache.snapshot,
     coverColors: namespace._coverColors,
     presentation: namespace._presentation,
@@ -403,5 +408,5 @@
       getHeartMode: recommendationsGetHeartMode
     })
   });
-  namespace.sdkVersion = 13;
+  namespace.sdkVersion = 14;
 })(globalThis);

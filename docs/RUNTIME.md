@@ -12,26 +12,32 @@ Chromatic 运行时由工作线程局部持有，DLL 固定到进程退出；`Dl
 msimg32.dll 代理 / DllMain
   ├─ cef_hooks.cpp       仅在 orpheus:// 主页面和精确的 about:blank#enhancencm 页面注入
   └─ enhancencm.cpp      独立 Chromatic/QuickJS 脚本运行时
-       └─ EnhanceNCM.js  当前仅作 Native 侧扩展，不能访问页面 window
+       └─ EnhanceNCM/EnhanceNCM.js  当前仅作 Native 侧扩展，不能访问页面 window
 
 CEF 页面 V8：
-  ├─ EnhanceNCM-sdk.js
+  ├─ EnhanceNCM/EnhanceNCM-sdk.js
   │    └─ src/sdk/{startup,settings,transport/*,domain/*}.js
-  ├─ 目录快照：theme_files.h 扫描程序目录 EnhanceNCM 的直接子文件夹
-  ├─ EnhanceNCM-page.js
+  ├─ 目录快照：theme_files.h 扫描程序目录 EnhanceNCM/Themes 的直接子文件夹
+  ├─ EnhanceNCM/EnhanceNCM-page.js
   │    ├─ src/host/entry.js             解析前入口与崩溃恢复
   │    ├─ src/host/themes.js            目录主题注册、选择与加载
   │    ├─ src/host/theme-host.js        独立页启动与窗口初始化
   │    └─ src/host/ui/{switcher,tray-menu}.js  通用设置与托盘
-  └─ EnhanceNCM/<文件夹>/theme.js       仅执行所选主题
+  └─ EnhanceNCM/Themes/<文件夹>/theme.js 仅执行所选主题
        └─ Spotify 来自 src/themes/spotify/{music-styles,standalone}.js
 ```
 
-`node tools/build-page.js` 分别生成 SDK、宿主和 Spotify 主题三个产物；MSBuild 会将发布文件集中到 build 目录，并保留主题层级。部署必须同时更新 DLL、两个公共 JS 与 Spotify 目录，可运行 `powershell -File tools/install.ps1`。此脚本要求客户端已退出，先备份再复制，不修改其他主题。源文件无需部署，不要直接编辑生成产物。
+`node tools/build-page.js` 分别生成 SDK、宿主和 Spotify 主题三个产物；MSBuild 会将发布文件集中到 build 目录，并保留主题层级。部署必须同时更新 DLL、两个公共 JS 与 `EnhanceNCM/Themes/Spotify` 目录，可运行 `powershell -File tools/install.ps1`。此脚本要求客户端已退出，先备份再复制，不修改其他主题。源文件无需部署，不要直接编辑生成产物。
 
-每个主题目录必须有 UTF-8 `theme.js`，通过 `EnhanceNCM.themes.register({name,mount})` 注册。目录名是持久化 ID（Spotify 兼容旧 ID `spotify`）；重启或设置中的重新扫描会发现新增、移除和更新的目录。扫描器把缺少/不可读/过大的入口作为错误条目返回；只有所选主题的源码会执行，错误不会因未选择的主题而中断宿主解析。原版设置在独立 ShadowRoot 中显示主题列表；进入主题后不挂载 E 或设置浮层。切换等待清理并重建页面，防止第三方全局状态残留；不是无缝音频热切换。主题接口与示例见 `THEME_API.md`。
+每个主题目录必须有 UTF-8 `theme.js`，通过 `EnhanceNCM.themes.register({name,mount})` 注册。目录名是持久化 ID（Spotify 兼容旧 ID `spotify`）；重启或设置中的重新扫描会发现新增、移除和更新的目录。扫描器把缺少/不可读/过大的入口作为错误条目返回；只有所选主题的源码会执行，错误不会因未选择的主题而中断宿主解析。原版设置在独立 ShadowRoot 中显示主题列表；主题页可通过 `EnhanceNCM.ui.openSettings()` 按需挂载同一设置浮层，避免主题启动时额外挂载。切换等待清理并重建页面，防止第三方全局状态残留；不是无缝音频热切换。主题接口与示例见 `THEME_API.md`。
 
 UI 应只依赖 `EnhanceNCM.sdk`，不要直接使用 `APP_CONF`、`legacyNativeCmder` 或 webpack 内部模块。界面偏好仍使用 `enhancencm.settings.v1`（`{version,mode,themeId}`），兼容旧的 `enhancencm.displayMode.v1`。
+
+## NowPlaying服务生命周期
+
+播放会话每次发布快照时，`now-playing.js` 同步准备兼容的歌曲、播放器、进度和歌词 JSON；Native bridge 再把它交给原生服务。歌词按歌曲代次请求，切歌后的旧响应不会覆盖当前歌词。两个开关由原生层持久化到 `EnhanceNCM/Settings/settings.json` 的 `nowPlaying` 节点，分别控制监听服务/WebSocket 与 `EnhanceNCM/Outputs` 文件 worker，均默认关闭。
+
+原生服务在 CEF bridge 安装时只记录 DLL 所在目录，在用户打开任一开关后按需启动线程；HTTP/WebSocket 仅绑定 `127.0.0.1:9863`。WebSocket 初次连接会发送 `Track`、`Lyric`、`PlayerPauseState`、`PlayerProgress`，之后只发送发生变化的事件。文件 worker 将 `title.txt`、`author.txt`、`cover.jpg` 和模板渲染的 `custom.txt` 写入安装目录的 `EnhanceNCM/Outputs`，使用临时文件替换并在关闭输出时清理生成文件。
 
 `startup.js` 定义启动配置与存储初始化，宿主的 `entry.js` 在 HTML 解析之前分流。在原版主框架的初始 CEF 上下文中，如果偏好为增强模式，立即停止原版文档解析；等 Native 的上下文回调返回后，用空白 HTML 重建当前文档并挂载增强 UI。启动 URL 仍是 `orpheus://orpheus/pub/app.html`，没有启动跳转，也不下载或执行原版前端 bundle。`_entry.active` 用于区分同一 URL 下的原版和增强页，SQL 事件只由当前增强页接管。过晚注入、非主入口、原版偏好或无法写入恢复标记时保留原版；已移除等待原版导航可见 1.5 秒再跳转的逻辑。
 
@@ -65,7 +71,7 @@ UI 启动时通过 `account.getCurrent()`、`playlists.listCreated({limit:30,off
 
 独立 UI 通过 `sdk.playback` 控制原生 `audioplayer`，不创建 HTMLAudio，也不直接获取播放 URL。播放/暂停、继续、进度和音量调用 SDK；当前状态、缓冲与进度由 `subscribe` 和 `getState` 同步。拖动进度时即时预览位置，释放后提交 `seek`，最终位置以 Native 回报为准；音量拖动合并处理中间值，静音通过设置音量为 0 实现，取消静音恢复最近非零值。
 
-队列、上一首/下一首、随机播放与单曲循环已从 UI 提取到 `sdk.player.createSession()`。默认 renderer 订阅会话更新显示，并使用 `sdk.presentation` 处理常用展示格式。收到 `ended` 后按当前模式切歌，同一 `playId` 的结束事件只处理一次。异步调用按代次隔离，等待加载时可以取消，过期 URL 或暂停/继续回调不覆盖新歌曲。业务层按授权音源构造 `load` 参数，监听 `onLoad` 后调用 `play`；协议来自客户端 3.1.39.205426，升级后需重新验证。
+队列、上一首/下一首、随机播放与单曲循环已从 UI 提取到 `sdk.player.createSession()`。有限队列开启随机时只在切换模式时打乱一次，之后上一首/下一首沿固定的洗牌顺序移动；默认 renderer 订阅会话更新显示，并使用 `sdk.presentation` 处理常用展示格式。收到 `ended` 后按当前模式切歌，同一 `playId` 的结束事件只处理一次。异步调用按代次隔离，等待加载时可以取消，过期 URL 或暂停/继续回调不覆盖新歌曲。业务层按授权音源构造 `load` 参数，监听 `onLoad` 后调用 `play`；协议来自客户端 3.1.39.205426，升级后需重新验证。
 
 点击刷新或返回原版会先等待 `playback.stop()`，停止失败则保留页面并提示，SDK 保留播放句柄以便重试。卸载会取消订阅并停止播放；外部直接关闭/刷新页面的 `pagehide` 只能尽力发送停止命令，无法保证异步回调完成。通过宿主持有共享 player 可在同一页面切换主题而保留队列和音频；SDK 快照只代表当前页面会话，尚不能读取原版跨页面的播放队列，进入独立页前仍建议暂停原版音乐。登录操作、全站搜索和创建/编辑歌单尚未迁移。真实 Native 音频、账号权限和私有协议兼容性仍需客户端验证。
 

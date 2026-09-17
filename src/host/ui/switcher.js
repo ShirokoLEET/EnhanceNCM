@@ -26,12 +26,56 @@
     };
   }
   var settings = readSettings();
+  var nowPlayingSettings = { webApi: false, fileOutput: false };
   function writeSettings() {
     try {
       var saved = JSON.parse(stored(storageKey) || "null") || {};
-      root.localStorage.setItem(storageKey, JSON.stringify(Object.assign(saved, settings)));
+      var next = Object.assign({}, saved, settings);
+      delete next.nowPlaying;
+      root.localStorage.setItem(storageKey, JSON.stringify(next));
       return true;
     } catch (_) { return false; }
+  }
+  function validNowPlaying(value) {
+    value = value || {};
+    return { webApi: value.webApi === true, fileOutput: value.fileOutput === true };
+  }
+  function currentNowPlaying() {
+    try {
+      if (namespace.sdk && namespace.sdk.settings && namespace.sdk.settings.getNowPlaying)
+        return validNowPlaying(namespace.sdk.settings.getNowPlaying());
+      if (namespace._settings && namespace._settings.nowPlaying)
+        return validNowPlaying(namespace._settings.nowPlaying());
+    } catch (_) {}
+    return validNowPlaying(nowPlayingSettings);
+  }
+  function setNowPlayingSetting(name, value) {
+    if (!["webApi", "fileOutput"].includes(name) || typeof value !== "boolean")
+      throw new TypeError("invalid now-playing setting");
+    var next = Object.assign({}, currentNowPlaying(), { [name]: value });
+    if (namespace.sdk && namespace.sdk.settings && namespace.sdk.settings.setNowPlaying)
+      namespace.sdk.settings.setNowPlaying(next);
+    else if (namespace._settings && namespace._settings.updateNowPlaying)
+      namespace._settings.updateNowPlaying(next);
+    nowPlayingSettings = next;
+    update();
+    return Object.assign({}, nowPlayingSettings);
+  }
+  function setNowPlayingSettings(value) {
+    if (!value || typeof value !== "object" || Array.isArray(value))
+      throw new TypeError("now-playing settings must be an object");
+    var merged = Object.assign({}, currentNowPlaying(), value);
+    ["webApi", "fileOutput"].forEach(function (name) {
+      if (typeof merged[name] !== "boolean") throw new TypeError(name + " must be boolean");
+    });
+    var next = validNowPlaying(merged);
+    if (namespace.sdk && namespace.sdk.settings && namespace.sdk.settings.setNowPlaying)
+      namespace.sdk.settings.setNowPlaying(next);
+    else if (namespace._settings && namespace._settings.updateNowPlaying)
+      namespace._settings.updateNowPlaying(next);
+    nowPlayingSettings = next;
+    update();
+    return Object.assign({}, nowPlayingSettings);
   }
   function pending(value) {
     try {
@@ -45,6 +89,9 @@
   var surface = null;
   var trigger = null;
   var choices = [];
+  var nowPlayingChoices = [];
+  var standaloneHost = null;
+  var standaloneCleanup = null;
 
   function update() {
     if (!surface) return;
@@ -56,7 +103,23 @@
     choices.forEach(function (choice) {
       choice.setAttribute("aria-checked", String(choice.dataset.mode === mode && (mode === "original" || choice.dataset.themeId === settings.themeId)));
     });
+    var integration = currentNowPlaying();
+    nowPlayingChoices.forEach(function (choice) {
+      var name = choice.dataset.nowPlaying;
+      var checked = integration[name] === true;
+      choice.setAttribute("aria-checked", String(checked));
+      choice.setAttribute("aria-label", (name === "webApi" ? "网页 API" : "直播软件文件输出") + (checked ? "，已开启" : "，已关闭"));
+    });
 
+  }
+
+  function disposeStandaloneSettings() {
+    var cleanup = standaloneCleanup;
+    var host = standaloneHost;
+    standaloneCleanup = null;
+    standaloneHost = null;
+    if (cleanup) cleanup();
+    if (host) host.remove();
   }
 
   function setMode(next) {
@@ -65,6 +128,7 @@
     mode = next;
     settings.mode = next;
     settingsOpen = false;
+    if (next === "original" && isStandalone()) disposeStandaloneSettings();
     writeSettings();
     pending(next === "enhanced" && !isStandalone());
     update();
@@ -77,7 +141,28 @@
     }
   }
 
-  function openSettings() { settingsOpen = true; update(); }
+  function mountStandaloneSettings() {
+    if (surface || !isStandalone() || !root.document || !root.document.body) return;
+    var host = root.document.createElement("div");
+    host.id = "enhancencm-settings-root";
+    var shadow = host.attachShadow({ mode: "open" });
+    root.document.body.appendChild(host);
+    try {
+      standaloneHost = host;
+      standaloneCleanup = render({ root: shadow, standalone: true });
+    } catch (error) {
+      standaloneHost = null;
+      standaloneCleanup = null;
+      host.remove();
+      throw error;
+    }
+  }
+
+  function openSettings() {
+    if (!surface && isStandalone()) mountStandaloneSettings();
+    settingsOpen = true;
+    update();
+  }
   function closeSettings() { settingsOpen = false; update(); }
   function confirmEnhanced() {
     if (!isStandalone()) return;
@@ -88,7 +173,9 @@
 
   function render(options) {
     var shadow = options.root;
-    shadow.host.style.cssText = "position:fixed;inset:0;z-index:2147483646;pointer-events:none;";
+    var standalone = !!options.standalone;
+    shadow.host.style.cssText = "position:fixed;inset:0;z-index:" + (standalone ? "2147483647" : "2147483646") + ";pointer-events:none;";
+    if (standalone) shadow.host.dataset.standalone = "true";
     shadow.innerHTML = `
       <style>
         :host { font: 14px/1.5 -apple-system, BlinkMacSystemFont, "Segoe UI", sans-serif;
@@ -112,6 +199,8 @@
           background: var(--panel); color: var(--ink); pointer-events: auto;
           box-shadow: 0 -8px 32px rgba(0,0,0,.12); }
         #surface[hidden] { display: none; }
+        :host([data-standalone="true"]) #e-button { display: none; }
+        :host([data-standalone="true"]) #surface { inset: 0; box-shadow: none; }
         .settings { display: grid; grid-template-columns: 196px minmax(0,1fr); min-height: 100%; }
         .side { padding: 34px 20px; background: var(--side); border-right: 1px solid var(--line); }
         .brand { display: flex; align-items: center; gap: 10px; font-size: 17px; font-weight: 700; }
@@ -135,6 +224,16 @@
         .option[aria-checked="true"] .radio { border-color: var(--ink); }
         .option[aria-checked="true"] .radio::after { content: ""; width: 9px; height: 9px;
           border-radius: 50%; background: var(--ink); }
+        .switch-option { justify-content: space-between; }
+        .switch-copy { display: block; min-width: 0; }
+        .switch { position: relative; display: inline-flex; align-items: center; flex: 0 0 40px;
+          width: 40px; height: 23px; padding: 2px; border-radius: 999px;
+          background: var(--line); transition: background .16s ease; }
+        .switch::after { content: ""; width: 19px; height: 19px; border-radius: 50%;
+          background: var(--muted); transition: transform .16s ease, background .16s ease; }
+        .switch-option[aria-checked="true"] .switch { background: var(--ink); }
+        .switch-option[aria-checked="true"] .switch::after { background: var(--panel); transform: translateX(17px); }
+        #integration-status { min-height: 21px; margin: 14px 0 0; color: var(--muted); font-size: 12px; }
         .option strong { display: block; font-size: 15px; }
         .option small { display: block; margin-top: 3px; color: var(--muted); font-size: 12px; }
         .note { max-width: 650px; margin-top: 25px; padding: 14px 17px; border-radius: 10px;
@@ -160,13 +259,22 @@
           <aside class="side"><div class="brand"><span class="mark">E</span>EnhanceNCM</div>
             <div class="side-label">设置</div><div class="side-item">显示界面</div></aside>
           <div class="content"><span class="eyebrow">PREFERENCES</span><h1>显示界面</h1>
-            <p class="muted">选择正在显示的界面，随时可以通过右上角 E 返回这里。</p>
+            <p class="muted">选择正在显示的界面，可通过界面中的设置入口随时返回这里。</p>
             <h2>界面模式</h2><div id="interface-options" class="options" role="radiogroup" aria-label="界面模式">
               <button class="option" type="button" role="radio" data-mode="original" aria-checked="false">
                 <span class="radio"></span><span><strong>网易云原版界面</strong><small>继续使用当前的完整桌面界面。</small></span></button>
             </div>
             <button id="theme-refresh" type="button">重新扫描主题（刷新页面）</button>
             <p id="theme-status" role="status" aria-live="polite"></p>
+            <h2>NowPlaying服务</h2>
+            <p class="muted">为网页小组件和直播软件提供兼容 now-playing-service 的当前歌曲信息。</p>
+            <div id="now-playing-options" class="options" aria-label="NowPlaying服务设置">
+              <button class="option switch-option" type="button" role="switch" data-now-playing="webApi" aria-checked="false">
+                <span class="switch-copy"><strong>网页 API</strong><small>在 http://127.0.0.1:9863 提供兼容接口与 WebSocket。</small></span><span class="switch" aria-hidden="true"></span></button>
+              <button class="option switch-option" type="button" role="switch" data-now-playing="fileOutput" aria-checked="false">
+                <span class="switch-copy"><strong>直播软件文件输出</strong><small>输出到 EnhanceNCM/Outputs：title、author、cover 和 custom。</small></span><span class="switch" aria-hidden="true"></span></button>
+            </div>
+            <p id="integration-status" role="status" aria-live="polite"></p>
             <div class="note">切换界面会刷新页面。歌曲、待播列表、播放进度和音量会自动保存，恢复后保持暂停。</div>
           </div><button class="close" type="button" aria-label="关闭设置">×</button>
         </section>
@@ -175,6 +283,7 @@
     trigger = shadow.querySelector("#e-button");
     surface = shadow.querySelector("#surface");
     var themeStatus = shadow.querySelector("#theme-status");
+    var integrationStatus = shadow.querySelector("#integration-status");
     function themeAction(action) {
       themeStatus.textContent = "正在处理…";
       Promise.resolve().then(action).catch(function (error) { themeStatus.textContent = error.message; });
@@ -182,7 +291,7 @@
     if (namespace.themes) {
       var themeList = shadow.querySelector("#interface-options");
       var themes = namespace.themes.list();
-      if (!themes.length) themeStatus.textContent = "没有发现主题，请添加主题文件夹后重新扫描。";
+      if (!themes.length) themeStatus.textContent = "没有发现主题，请将主题文件夹放入 EnhanceNCM/Themes 后重新扫描。";
       themes.forEach(function (theme) {
         var button = root.document.createElement("button");
         button.type = "button"; button.className = "option";
@@ -204,6 +313,7 @@
       shadow.querySelector("#theme-refresh").onclick = function () { themeAction(namespace.themes.refresh); };
     } else shadow.querySelector("#theme-refresh").hidden = true;
     choices = Array.from(shadow.querySelectorAll("[data-mode]"));
+    nowPlayingChoices = Array.from(shadow.querySelectorAll("[data-now-playing]"));
     function syncClientTheme() {
       var theme = stored("currentTheme");
       var light = !isStandalone() && (theme === "light" || (!theme && root.matchMedia &&
@@ -241,6 +351,17 @@
         } catch (error) { if (namespace.log) namespace.log(error.message); }
       });
     });
+    nowPlayingChoices.forEach(function (choice) {
+      choice.addEventListener("click", function () {
+        var name = choice.dataset.nowPlaying;
+        var next = !currentNowPlaying()[name];
+        integrationStatus.textContent = "正在应用…";
+        try {
+          setNowPlayingSetting(name, next);
+          integrationStatus.textContent = "设置已保存";
+        } catch (error) { integrationStatus.textContent = error.message; }
+      });
+    });
     root.addEventListener("resize", positionButton);
     root.addEventListener("storage", syncClientTheme);
     var timer = root.setInterval(function () { positionButton(); syncClientTheme(); }, 1000);
@@ -253,6 +374,7 @@
       surface = null;
       trigger = null;
       choices = [];
+      nowPlayingChoices = [];
     };
   }
 
@@ -284,6 +406,7 @@
   }
   function stop() {
     namespace.app.unmount();
+    disposeStandaloneSettings();
     started = false;
   }
 
@@ -294,6 +417,8 @@
     setMode: setMode, openSettings: openSettings, closeSettings: closeSettings,
     getPlaybackSettings: function () { return namespace._settings.playback(); },
     setPlaybackSettings: function (value) { return namespace._settings.updatePlayback(value); },
+    getNowPlayingSettings: function () { return Object.freeze(currentNowPlaying()); },
+    setNowPlayingSettings: setNowPlayingSettings,
     confirmEnhanced: confirmEnhanced
   });
   if (root.document && typeof root.document.addEventListener === "function") {

@@ -51,6 +51,29 @@ test("headless player owns queue, immutable snapshots, repeat and next/previous 
   await player.dispose();
 });
 
+test("shuffle creates one stable queue order so previous reverses next", async () => {
+  const f = fixture(), player = f.create();
+  const playlist = [1, 2, 3, 4, 5].map(id => ({ id, name: String(id) }));
+  try {
+    await player.play(playlist[0], { queue: playlist });
+    const original = Array.from(player.getState().queue, song => song.id);
+    player.setShuffle(true);
+    const shuffled = Array.from(player.getState().queue, song => song.id);
+    assert.deepEqual([...shuffled].sort((a, b) => a - b), original);
+    assert.equal(player.getState().shuffle, true);
+
+    const current = player.getState().song.id;
+    await player.next();
+    assert.notEqual(player.getState().song.id, current);
+    await player.previous();
+    assert.equal(player.getState().song.id, current);
+    assert.deepEqual(Array.from(player.getState().queue, song => song.id), shuffled);
+
+    player.setShuffle(false);
+    assert.deepEqual(Array.from(player.getState().queue, song => song.id), original);
+  } finally { await player.dispose(); }
+});
+
 test("dynamic continuation coalesces requests and discards batches after another selection", async () => {
   const f = fixture(), player = f.create();
   let finish, requests = 0;

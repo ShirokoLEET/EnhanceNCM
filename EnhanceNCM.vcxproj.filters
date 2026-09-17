@@ -16,6 +16,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClInclude Include="src\inject\artwork_cache.h"><Filter>头文件</Filter></ClInclude>
+    <ClInclude Include="src\inject\now_playing_service.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="src\inject\smtc_timeline.h"><Filter>头文件</Filter></ClInclude>
     <ClInclude Include="src\inject\cef_hooks.h">
       <Filter>头文件</Filter>
@@ -35,6 +36,7 @@
   </ItemGroup>
   <ItemGroup>
     <ClCompile Include="src\inject\artwork_cache.cpp"><Filter>源文件</Filter></ClCompile>
+    <ClCompile Include="src\inject\now_playing_service.cpp"><Filter>源文件</Filter></ClCompile>
     <ClCompile Include="src\inject\smtc_timeline.cpp"><Filter>源文件</Filter></ClCompile>
     <ClCompile Include="src\inject\cef_hooks.cpp">
       <Filter>源文件</Filter>
@@ -54,7 +56,7 @@
   </ItemGroup>
   <ItemGroup>
     <None Include="src\inject\EnhanceNCM.js" />
-    <None Include="build\EnhanceNCM-page.js" />
+    <None Include="build\EnhanceNCM\EnhanceNCM-page.js" />
     <None Include="src\host\entry.js" />
     <None Include="src\sdk\startup.js" />
     <None Include="src\sdk\settings.js" />
@@ -67,6 +69,7 @@
     <None Include="src\sdk\domain\shell.js" />
     <None Include="src\sdk\domain\library-cache.js" />
     <None Include="src\sdk\domain\player-session.js" />
+    <None Include="src\sdk\domain\now-playing.js" />
     <None Include="src\sdk\domain\presentation.js" />
     <None Include="src\host\app.js" />
     <None Include="src\host\ui\switcher.js" />

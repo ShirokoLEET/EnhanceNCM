@@ -2,7 +2,7 @@
 
 SDK 11 的主题接入、共享播放会话、生命周期及音频缓存边界见 [THEME_API.md](THEME_API.md)。示例：[最小主题](../examples/themes/minimal.js)。当前内置界面已使用共享播放服务；主题业务不依赖内置界面的 DOM。
 
-业务源码位于 `src/sdk/transport` 和 `src/sdk/domain`，独立构建为 `EnhanceNCM-sdk.js`。`EnhanceNCM-page.js` 只负责入口、主题管理和公共设置；Spotify 界面位于 `src/themes/spotify`，构建为 `EnhanceNCM/Spotify/theme.js`。DLL 在 CEF 主页面上下文中先加载 SDK，再传入安装目录的主题目录快照，最后启动宿主。部署时两个公共 JS 与 `msimg32.dll` 放在同一目录，主题放在程序目录的 `EnhanceNCM` 下。可运行 `tools/install.ps1` 在客户端退出后安装并备份旧文件。无需启动 `api-enhanced` 服务，也不读取或保存 Cookie。
+业务源码位于 `src/sdk/transport` 和 `src/sdk/domain`，独立构建为 `EnhanceNCM/EnhanceNCM-sdk.js`。`EnhanceNCM/EnhanceNCM-page.js` 只负责入口、主题管理和公共设置；Spotify 界面位于 `src/themes/spotify`，构建为 `EnhanceNCM/Themes/Spotify/theme.js`。DLL 在 CEF 主页面上下文中先加载 SDK，再传入安装目录的主题目录快照，最后启动宿主。部署时 `msimg32.dll` 放在安装目录根部，公共脚本放在程序目录的 `EnhanceNCM` 下，主题放在 `EnhanceNCM/Themes` 下。可运行 `tools/install.ps1` 在客户端退出后安装并备份旧文件。无需启动 `api-enhanced` 服务，也不读取或保存 Cookie。
 
 这是页面侧 SDK。`EnhanceNCM.js` 当前运行在独立的 Chromatic/QuickJS 环境，不能直接访问页面的 `window.EnhanceNCM.sdk`；若要从该脚本调用，还需单独实现跨运行时消息桥。Native 通道未就绪时会得到 `BRIDGE_UNAVAILABLE`，可等待 `EnhanceNCM.app.whenReady()`。
 
@@ -49,7 +49,7 @@ await playback.stop();
 unsubscribe();
 ```
 
-原版页面会显示右上角的半透明 E 控件。点击它进入跟随原版深浅配色的透明设置层，选择 EnhanceNCM 音乐后会导航到深色的独立页面，卸载原前端；侧栏只显示一次 EnhanceNCM，标题栏在最小化/最大化/关闭按钮旁以图标提供“刷新界面”和“返回原版”（保留悬停提示与无障碍名称）。模式选择持久化，重开客户端恢复上次的原版或增强界面；可通过 `EnhanceNCM.ui.getSettings()` 查看 `{version:1,mode,themeId}`，当前主题 ID 为 `spotify`，供以后加载更多主题使用。也可调用 `EnhanceNCM.ui.setMode("original" | "enhanced")`，原版页面另可调用 `EnhanceNCM.ui.openSettings()`。增强页加载失败会提供返回原版入口，并防止下次无限自动跳转。独立播放器已使用 `sdk.playback`，不再创建 HTMLAudio。进入独立页前仍建议暂停原版音乐：当前 SDK 无法恢复原版跨页面的播放队列。独立页的刷新/返回按钮会先等待 Native 停止；直接调用 `ui.setMode` 的调用方仍应自行先 `await playback.stop()`。标题栏已接入原生窗口控制，退出按钮会停止播放并关闭客户端。
+原版页面会显示右上角的半透明 E 控件。点击它进入跟随原版深浅配色的透明设置层，选择 EnhanceNCM 音乐后会导航到深色的独立页面，卸载原前端；侧栏只显示一次 EnhanceNCM，标题栏在最小化/最大化/关闭按钮旁以图标提供“刷新界面”和“返回原版”（保留悬停提示与无障碍名称），Spotify 和 AMLL 还提供“EnhanceNCM 设置”按钮。模式选择持久化，重开客户端恢复上次的原版或增强界面；可通过 `EnhanceNCM.ui.getSettings()` 查看 `{version:1,mode,themeId}`，当前主题 ID 为 `spotify`，供以后加载更多主题使用。也可调用 `EnhanceNCM.ui.setMode("original" | "enhanced")` 和 `EnhanceNCM.ui.openSettings()`；后者会在当前支持的主题页按需打开同一设置界面。增强页加载失败会提供返回原版入口，并防止下次无限自动跳转。独立播放器已使用 `sdk.playback`，不再创建 HTMLAudio。进入独立页前仍建议暂停原版音乐：当前 SDK 无法恢复原版跨页面的播放队列。独立页的刷新/返回按钮会先等待 Native 停止；直接调用 `ui.setMode` 的调用方仍应自行先 `await playback.stop()`。标题栏已接入原生窗口控制，退出按钮会停止播放并关闭客户端。
 
 首页显示推荐歌单、自建歌单和收藏歌单；侧栏下方的“歌单”列表同时展示已载入的自建和收藏歌单。歌曲视图默认加载热歌榜前 500 首，也可通过侧栏加号输入其他歌单 ID。普通歌单、“我喜欢的音乐”和私人雷达均按每页 500 首载入，支持继续加载；缺少歌曲详情时仍按曲目 ID 页大小推进偏移。自建和收藏歌单分别通过 `playlists.listCreated()` 与 `playlists.listSubscribed()` 每页读取 30 份，支持点击进入歌曲列表和继续加载。`specialType=5` 已有独立入口，不在自建歌单区重复列出。账号昵称由 `account.getCurrent()` 提供，可点击账号旁的刷新按钮重新读取；底部悬浮提示只显示错误，常规加载状态保留在相关页面内。
 
@@ -113,6 +113,14 @@ Spotify 主题的“歌曲”显示当前播放队列，待播侧栏最多展示
 | 封面配色 | `sdk.coverColors`，与公共 `sdk.artwork` 配合使用 |
 
 页面宿主在 `EnhanceNCM-page.js` 中提供 `EnhanceNCM.app.whenReady()`、`mount()`、`unmount()` 和 `isStandalone()`。`EnhanceNCM-sdk.js` 本身不挂载 DOM，也不提供 `app` 对象。
+
+## 正在播放兼容服务（SDK 14）
+
+`sdk.settings.getNowPlaying()` 返回 `{webApi, fileOutput}`；`sdk.settings.setNowPlaying({webApi, fileOutput})` 校验并持久化两个开关，同时通知 Native 服务。两个开关默认都是 `false`。主题通常只调用公开设置接口，不需要访问 `_nowPlaying`。
+
+启用后，原生层在本机 `127.0.0.1:9863` 提供与 `now-playing-service` 兼容的接口：`/api/query`、`/api/query/player`、`/api/query/track`、`/api/query/progress`、`/api/query/hasSong`、`/api/lyric` 和 `/api/ws/lyric`；`/query*` 也保留为兼容别名，并提供封面转换、输出模板设置及常用系统信息路由。WebSocket 事件名为 `Track`、`Lyric`、`PlayerPauseState` 和 `PlayerProgress`。
+
+文件输出位于安装目录的 `EnhanceNCM/Outputs/`：`title.txt`、`author.txt`、`cover.jpg` 和 `custom.txt`。`custom.txt` 默认模板为 `{author} - {title}`，模板设置保存在 `EnhanceNCM/Settings/settings-output.json`；两个开关保存在 `EnhanceNCM/Settings/settings.json` 的 `nowPlaying` 节点中。模板可使用 `author`、`firstAuthor`、`title`、`album`、`duration` 和 `durationHuman`。写文件采用原子替换，适合 OBS 等直播软件轮询读取。
 
 ## 本地音乐（SDK 13）
 

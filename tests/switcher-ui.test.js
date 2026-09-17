@@ -79,3 +79,39 @@ test("original-client E is borderless and settings use opaque light and dark pal
     await new Promise(resolve => server.close(resolve));
   }
 });
+
+test("standalone themes can open and close the shared settings surface on demand", async () => {
+  const server = http.createServer((request, response) => {
+    response.setHeader("Content-Type", "text/html; charset=utf-8");
+    response.end("<!doctype html><html><body style=\"margin:0\"></body></html>");
+  });
+  await new Promise(resolve => server.listen(0, "127.0.0.1", resolve));
+  const browser = await chromium.launch({ headless: true, executablePath: process.env.ENHANCENCM_CHROMIUM || undefined });
+  const page = await browser.newPage();
+  try {
+    await page.goto("http://127.0.0.1:" + server.address().port + "/");
+    await page.evaluate(() => {
+      window.EnhanceNCM = {
+        _entry: { active: true },
+        _themeCatalog: [{ id: "spotify", name: "Spotify" }],
+        sdk: {},
+        app: { unmount: async () => {} },
+      };
+    });
+    await page.addScriptTag({ content: fs.readFileSync(path.join(__dirname, "../src/host/themes.js"), "utf8") });
+    await page.addScriptTag({ content: script });
+    await page.evaluate(() => EnhanceNCM.ui.openSettings());
+    const settingsRoot = page.locator("#enhancencm-settings-root");
+    await settingsRoot.locator("#surface").waitFor();
+    assert.equal(await settingsRoot.locator("#surface").isVisible(), true);
+    assert.equal(await settingsRoot.locator("#e-button").isVisible(), false);
+    assert.equal(await page.getByRole("heading", { name: "显示界面", exact: true }).count(), 1);
+    await page.getByRole("button", { name: "关闭设置", exact: true }).click();
+    assert.equal(await settingsRoot.locator("#surface").isVisible(), false);
+    await page.evaluate(() => EnhanceNCM.ui.openSettings());
+    assert.equal(await settingsRoot.locator("#surface").isVisible(), true);
+  } finally {
+    await browser.close();
+    await new Promise(resolve => server.close(resolve));
+  }
+});

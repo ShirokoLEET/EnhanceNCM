@@ -17,6 +17,12 @@ flowchart TD
 
 `EnhanceNCM.js` 是独立 QuickJS 脚本，不属于页面 SDK。页面 V8 和 Native QuickJS 不能直接共享 JavaScript 对象。原生层不实现歌曲列表、搜索页面或主题样式。
 
+## 正在播放兼容服务
+
+`src/sdk/domain/now-playing.js` 将共享播放会话的快照转换为 `now-playing-service` 使用的 `Track`、`Player`、`Progress` 和 `Lyric` 数据模型。它通过 CEF bridge 将序列化后的快照交给 `src/inject/now_playing_service.cpp`；页面侧不直接打开端口，也不把服务实现放进主题。
+
+原生服务只监听 `127.0.0.1:9863`，按设置开关分别启用 HTTP/WebSocket API 和文件输出。HTTP API、歌词 WebSocket、封面转换及输出模板设置与 `now-playing-service` 保持兼容；`EnhanceNCM/Settings/settings.json` 持久化两个开关，`EnhanceNCM/Settings/settings-output.json` 持久化输出模板。文件输出由后台工作线程以临时文件替换方式更新，避免直播软件读取到半截内容。关闭文件输出会清理本次生成的安装目录 `EnhanceNCM/Outputs/title.txt`、`author.txt`、`cover.jpg` 和 `custom.txt`。
+
 ## SDK — src/sdk
 
 - `startup.js`、`settings.js`：基础启动配置、存储与播放设置。
@@ -47,10 +53,11 @@ Spotify 的视图与交互位于 `spotify/standalone.js`，样式位于 `spotify
 | 源码 | 构建产物 |
 | --- | --- |
 | `src/inject/*.cpp` | `build/msimg32.dll` |
-| `src/inject/EnhanceNCM.js` | `build/EnhanceNCM.js` |
-| `src/sdk/` | `build/EnhanceNCM-sdk.js` |
-| `src/host/` | `build/EnhanceNCM-page.js` |
-| `src/themes/spotify/` | `build/EnhanceNCM/Spotify/theme.js` |
+| `src/inject/now_playing_service.cpp` | DLL 内的本机正在播放 HTTP/WebSocket 服务与 `EnhanceNCM/Outputs/` 输出 |
+| `src/inject/EnhanceNCM.js` | `build/EnhanceNCM/EnhanceNCM.js` |
+| `src/sdk/` | `build/EnhanceNCM/EnhanceNCM-sdk.js` |
+| `src/host/` | `build/EnhanceNCM/EnhanceNCM-page.js` |
+| `src/themes/spotify/` | `build/EnhanceNCM/Themes/Spotify/theme.js` |
 
 `tests/` 中的单元测试验证 SDK 与宿主行为，浏览器测试通过模拟 Native 通道验证交互和异步竞争，原生测试验证目录扫描与 DLL 启动。GitHub CI 的覆盖范围、构建限制与发布命令见 [开发说明](DEVELOPMENT.md)。
 

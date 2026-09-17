@@ -91,7 +91,7 @@ void enhancencm::start(HMODULE module) {
     return;
   }
 
-  auto script = directory / L"EnhanceNCM.js";
+  auto script = directory / L"EnhanceNCM" / L"EnhanceNCM.js";
 
   // This function runs on DllMain's detached worker. Pin the module for that
   // worker's lifetime; process teardown must not join threads under loader lock.

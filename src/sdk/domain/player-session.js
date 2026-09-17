@@ -19,7 +19,7 @@
     });
     if (activeSession) throw new Error("A player session already owns this page; reuse it or await dispose()");
     var playback = namespace.sdk.playback;
-    var listeners = new Set(), queue = Object.freeze([]), song = null, source = null;
+    var listeners = new Set(), queue = Object.freeze([]), canonicalQueue = Object.freeze([]), song = null, source = null;
     var shuffle = false, repeatOne = false, loading = false, disposed = false;
     var version = 0, handledEnd = null, loadMore = null, advancing = null;
     var nativeState = playback.getState(), media = null, mediaSignature = null, disposeJob = null;
@@ -38,6 +38,11 @@
     function mediaError(cause) { if (!disposed && options.onMediaError) options.onMediaError(cause); }
     function publish() {
       var state = snapshot();
+      if (namespace._nowPlaying && namespace._nowPlaying.publish) {
+        try { namespace._nowPlaying.publish(state); } catch (cause) {
+          if (namespace.log) namespace.log("Now-playing service: " + cause.message);
+        }
+      }
       if (media && !disposed) {
         // The chosen track is known before authorization and Native audio load finish.
         // Publish its artwork immediately, but keep the media control paused until playback confirms it.
@@ -61,16 +66,41 @@
       if (!result.name) result.name = "歌曲 " + result.id;
       return freeze(result);
     }
-    function replaceQueue(items) {
+    function uniqueSongs(items) {
       if (!Array.isArray(items)) throw new TypeError("queue must be an array");
       var unique = new Map();
       items.forEach(function (item) { unique.set(String(item.id), cloneSong(item)); });
-      queue = Object.freeze(Array.from(unique.values()));
+      return Array.from(unique.values());
+    }
+    function shuffled(items) {
+      var result = Array.from(items);
+      for (var index = result.length - 1; index > 0; index--) {
+        var other = Math.floor(Math.random() * (index + 1));
+        var item = result[index]; result[index] = result[other]; result[other] = item;
+      }
+      return result;
+    }
+    function replaceQueue(items) {
+      var ordered = uniqueSongs(items);
+      canonicalQueue = Object.freeze(ordered);
+      queue = Object.freeze(shuffle ? shuffled(ordered) : ordered);
     }
     function append(items, expectedSource) {
       check();
       if (expectedSource !== undefined && expectedSource !== source) return snapshot();
-      ++revision; replaceQueue(queue.concat(items)); publish(); return snapshot();
+      var additions = uniqueSongs(items), incoming = new Map();
+      additions.forEach(function (item) { incoming.set(String(item.id), item); });
+      var known = new Set(canonicalQueue.map(function (item) { return String(item.id); }));
+      var ordered = canonicalQueue.map(function (item) { return incoming.get(String(item.id)) || item; });
+      additions.forEach(function (item) { if (!known.has(String(item.id))) ordered.push(item); });
+      canonicalQueue = Object.freeze(ordered);
+      if (shuffle) {
+        var active = queue.map(function (item) { return incoming.get(String(item.id)) || item; });
+        var activeIds = new Set(queue.map(function (item) { return String(item.id); }));
+        additions.forEach(function (item) { if (!activeIds.has(String(item.id))) active.push(item); });
+        queue = Object.freeze(active);
+      } else queue = canonicalQueue;
+      ++revision; publish(); return snapshot();
     }
     var nextSongId = null;
     function insertNext(value) {
@@ -78,7 +108,11 @@
       if (song && String(song.id) === String(item.id)) return snapshot();
       var items = queue.filter(function (entry) { return String(entry.id) !== String(item.id); });
       var index = items.findIndex(function (entry) { return song && String(entry.id) === String(song.id); });
-      items.splice(index + 1, 0, item); ++revision; replaceQueue(items);
+      items.splice(index + 1, 0, item);
+      var ordered = canonicalQueue.filter(function (entry) { return String(entry.id) !== String(item.id); });
+      var orderedIndex = ordered.findIndex(function (entry) { return song && String(entry.id) === String(song.id); });
+      ordered.splice(orderedIndex + 1, 0, item);
+      ++revision; canonicalQueue = Object.freeze(ordered); queue = Object.freeze(items);
       nextSongId = String(item.id); publish(); return snapshot();
     }
     function clearContinuation() { check(); source = null; loadMore = null; publish(); }
@@ -93,10 +127,14 @@
         throw new TypeError("loadMore must be a function");
       if (settings.queue) {
         nextSongId = null;
-        replaceQueue(settings.queue); source = settings.source || null; loadMore = settings.loadMore || null;
+        source = settings.source || null; loadMore = settings.loadMore || null;
         if (loadMore) shuffle = false;
+        replaceQueue(settings.queue);
       }
-      if (!queue.some(function (item) { return String(item.id) === String(selected.id); })) replaceQueue(queue.concat([selected]));
+      if (!queue.some(function (item) { return String(item.id) === String(selected.id); })) {
+        canonicalQueue = Object.freeze(canonicalQueue.concat([selected]));
+        queue = Object.freeze(queue.concat([selected]));
+      }
       song = queue.find(function (item) { return String(item.id) === String(selected.id); });
       restoredPosition = null; resumeAt = settings.startPosition || 0;
       var current = ++version; loading = true; publish();
@@ -150,7 +188,7 @@
         finally { if (advancing === request) advancing = null; }
       }
       if (settings.ended && !shuffle && index === queue.length - 1) return snapshot();
-      var nextIndex = shuffle && queue.length > 1 ? (index + 1 + Math.floor(Math.random() * (queue.length - 1))) % queue.length : (index + 1) % queue.length;
+      var nextIndex = (index + 1) % queue.length;
       return play(queue[nextIndex]);
     }
     async function previous() {
@@ -158,10 +196,17 @@
       if (snapshot().playback.current > 3) return seek(0);
       if (!queue.length) return snapshot();
       var index = queue.findIndex(function (item) { return song && String(item.id) === String(song.id); });
-      var previousIndex = shuffle && queue.length > 1 ? (index + 1 + Math.floor(Math.random() * (queue.length - 1))) % queue.length : (index - 1 + queue.length) % queue.length;
+      var previousIndex = (index - 1 + queue.length) % queue.length;
       return play(queue[previousIndex]);
     }
-    function setShuffle(value) { check(); if (typeof value !== "boolean") throw new TypeError("shuffle must be boolean"); ++revision; shuffle = loadMore ? false : value; publish(); }
+    function setShuffle(value) {
+      check(); if (typeof value !== "boolean") throw new TypeError("shuffle must be boolean");
+      var nextShuffle = loadMore ? false : value;
+      if (shuffle !== nextShuffle) {
+        queue = Object.freeze(nextShuffle ? shuffled(canonicalQueue) : Array.from(canonicalQueue));
+      }
+      ++revision; shuffle = nextShuffle; publish();
+    }
     function setRepeatOne(value) { check(); if (typeof value !== "boolean") throw new TypeError("repeatOne must be boolean"); ++revision; repeatOne = value; publish(); }
     async function seek(seconds) {
       check();
@@ -176,11 +221,14 @@
       if (nativeState.playId || loading) throw new Error("Cannot restore over active playback");
       saved = saved || {};
       nextSongId = null;
-      replaceQueue(saved.queue || []);
-      song = queue.find(function (item) { return String(item.id) === String(saved.songId); }) || null;
       source = typeof saved.source === "string" ? saved.source : null;
       loadMore = ["roaming", "heartmode"].includes(source) ? recommendationLoader(source) : null;
       shuffle = !loadMore && saved.shuffle === true; repeatOne = saved.repeatOne === true;
+      canonicalQueue = Object.freeze(uniqueSongs(saved.queue || []));
+      // Persisted queues already contain the order that was active when they were saved.
+      // Keep it intact so restoring shuffle does not silently generate a new sequence.
+      queue = Object.freeze(Array.from(canonicalQueue));
+      song = queue.find(function (item) { return String(item.id) === String(saved.songId); }) || null;
       restoredPosition = song ? Math.max(0, Number(saved.position) || 0) : null;
       resumeAt = restoredPosition || 0;
       publish(); return snapshot();
@@ -216,7 +264,7 @@
       if (state.songId && (!song || String(state.songId) !== String(song.id))) {
         var current = ++version;
         song = cloneSong(state.localSong || { id: state.songId, name: "歌曲 " + state.songId });
-        queue = Object.freeze([song]); source = null; loadMore = null;
+        queue = canonicalQueue = Object.freeze([song]); source = null; loadMore = null;
         var resolveSong = options.resolveSong || function (id) { return state.localSong || namespace.sdk.songs.get(id); };
         Promise.resolve().then(function () { return resolveSong(state.songId); }).then(function (detail) {
           if (detail && !disposed && version === current && song && String(detail.id) === String(song.id)) {
@@ -234,6 +282,11 @@
     function dispose() {
       if (disposeJob) return disposeJob;
       disposed = true; ++version; unsubscribe(); listeners.clear();
+      if (namespace._nowPlaying && namespace._nowPlaying.clear) {
+        try { namespace._nowPlaying.clear(); } catch (cause) {
+          if (namespace.log) namespace.log("Now-playing service: " + cause.message);
+        }
+      }
       disposeJob = Promise.all([playback.stop(), media ? media.dispose() : Promise.resolve()])
         .then(function () { if (activeSession === api) activeSession = null; })
         .catch(function (cause) { disposeJob = null; throw cause; });

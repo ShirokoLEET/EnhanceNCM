@@ -10,6 +10,12 @@ test('Spotify global search, current queue and song context actions', async () =
   try {
     await page.goto(`http://127.0.0.1:${server.address().port}/`);
     await page.locator('#albums button').first().waitFor();
+    await page.evaluate(() => {
+      window.settingsOpened = 0;
+      EnhanceNCM.ui.openSettings = () => { ++window.settingsOpened; };
+    });
+    await page.getByRole('button', { name: 'EnhanceNCM 设置', exact: true }).click();
+    assert.equal(await page.evaluate(() => window.settingsOpened), 1);
     assert.equal(await page.locator('#albums small').count(),0);
     assert.equal(await page.locator('#search').isVisible(),true);
     await page.locator('[data-view="songs"]').click();

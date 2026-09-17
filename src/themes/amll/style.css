@@ -1,0 +1,335 @@
+:host {
+	display: block;
+	width: 100%;
+	height: 100%;
+	color: white;
+	color-scheme: dark;
+	font-family: var(--amll-font-family);
+	font-size: 12px;
+	font-synthesis: none;
+	text-rendering: optimizeLegibility;
+	-webkit-font-smoothing: antialiased;
+	-moz-osx-font-smoothing: grayscale;
+	-webkit-text-size-adjust: 100%;
+	background-color: var(--color-background, transparent);
+}
+
+.amll-theme {
+	position: relative;
+	height: 100vh;
+	max-height: 100vh;
+	min-height: 0;
+	overflow: hidden;
+	isolation: isolate;
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: default;
+	--amll-font-family: "SF Pro Display", "PingFang SC", system-ui, -apple-system, BlinkMacSystemFont, "Segoe UI", Roboto, "Microsoft YaHei", sans-serif;
+}
+
+.amll-radix {
+	position: relative;
+	height: 100%;
+	min-height: 0 !important;
+	--default-font-family: var(--amll-font-family);
+	--code-font-family: "Menlo", "Consolas", var(--amll-font-family), monospace, "Apple Color Emoji", "Segoe UI Emoji";
+	--color-panel-solid: var(--color-panel-translucent);
+}
+
+.amll-app-shell {
+	display: flex;
+	flex-direction: column;
+	height: 100%;
+	min-height: 0;
+	overflow: hidden;
+	background: var(--gray-1);
+}
+
+.amll-window-bar {
+	--amll-window-bar-height: 38px;
+	box-sizing: border-box;
+	position: relative;
+	z-index: 80;
+	display: flex;
+	align-items: center;
+	flex: 0 0 var(--amll-window-bar-height);
+	width: 100%;
+	height: var(--amll-window-bar-height);
+	min-width: 0;
+	padding: 0 10px 0 14px;
+	border-bottom: 1px solid var(--gray-5);
+	background-color: var(--gray-2);
+	box-shadow: 0 1px 0 rgb(255 255 255 / 0.025);
+	color: var(--gray-11);
+	user-select: none;
+	-webkit-user-select: none;
+	cursor: default;
+	transition: transform 220ms cubic-bezier(0.23, 1, 0.32, 1), opacity 180ms cubic-bezier(0.23, 1, 0.32, 1), background-color 160ms cubic-bezier(0.23, 1, 0.32, 1), border-color 160ms cubic-bezier(0.23, 1, 0.32, 1);
+}
+
+.amll-window-drag-area {
+	align-self: stretch;
+	flex: 1 1 auto;
+	min-width: 24px;
+}
+
+.amll-window-controls {
+	display: flex;
+	align-items: center;
+	align-self: stretch;
+	gap: 2px;
+	flex-shrink: 0;
+	-webkit-app-region: no-drag;
+}
+
+.amll-window-control {
+	display: grid;
+	place-items: center;
+	width: 40px;
+	height: 28px;
+	padding: 0;
+	border: 0;
+	border-radius: 8px;
+	background: transparent;
+	color: var(--gray-10);
+	cursor: pointer;
+	-webkit-app-region: no-drag;
+	transition: background-color 160ms ease-out, color 160ms ease-out, transform 120ms ease-out;
+}
+
+.amll-window-control svg {
+	width: 15px;
+	height: 15px;
+}
+
+.amll-window-control:disabled {
+	opacity: 0.45;
+	cursor: default;
+}
+
+.amll-window-control:not(:disabled):active {
+	transform: scale(0.97);
+}
+
+@media (hover: hover) and (pointer: fine) {
+	.amll-window-bar-lyrics {
+		transform: translateY(0);
+		opacity: 0;
+		background-color: transparent;
+		border-bottom-color: transparent;
+		box-shadow: none;
+	}
+
+	.amll-window-bar-lyrics:hover,
+	.amll-window-bar-lyrics:focus-within {
+		transform: translateY(0);
+		opacity: 1;
+		background-color: var(--gray-2);
+		border-bottom-color: var(--gray-5);
+		box-shadow: 0 1px 0 rgb(255 255 255 / 0.025);
+	}
+
+	.amll-window-control:not(:disabled):hover {
+		background: var(--gray-a4);
+		color: var(--gray-12);
+	}
+
+	.amll-window-control.amll-window-close:not(:disabled):hover {
+		background: var(--red-9);
+		color: white;
+	}
+}
+
+.amll-app-body {
+	box-sizing: border-box;
+	height: auto;
+	flex: 1 1 auto;
+	min-height: 0;
+	overflow: hidden;
+	transition: transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+	transform: scale(1);
+	transform-origin: center;
+}
+
+.amll-app-body.amll-lyrics-open {
+	transform: scale(0.95);
+}
+
+.amll-app-body::after {
+	content: "";
+	display: block;
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100vw;
+	height: 100vh;
+	pointer-events: none;
+	opacity: 0;
+	transition: opacity 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+}
+
+.amll-app-body.amll-lyrics-open::after {
+	opacity: 0.75;
+}
+
+::-webkit-scrollbar-track {
+	background: transparent;
+}
+
+::-webkit-scrollbar {
+	width: 20px;
+	background-color: transparent;
+}
+
+::-webkit-scrollbar-thumb {
+	min-height: max(5%, 5vh, 5vw);
+	border: solid 6px transparent;
+	box-shadow: inset 0 0 0 1px rgba(255, 255, 255, 0.0509803922), inset 0 0 0 6px rgba(255, 255, 255, 0.1137254902);
+	border-radius: 10px;
+	background: transparent;
+}
+
+.img-border {
+	box-shadow: 0 0 0 1px var(--base-card-classic-border-color);
+}
+
+.amll-playlists-scroll,
+.amll-tracks-scroll {
+	overflow: auto;
+	min-height: 0;
+	flex: 1;
+	padding-bottom: 20px;
+}
+
+.amll-playlist-card {
+	display: block;
+	width: 100%;
+	height: 100%;
+	cursor: pointer;
+	text-align: left;
+	font: inherit;
+	color: inherit;
+}
+
+.amll-playlist-card > button {
+	width: 100%;
+	height: 100%;
+	border: 0;
+	padding: 0;
+	background: transparent;
+	color: inherit;
+	font: inherit;
+	text-align: left;
+	cursor: pointer;
+}
+
+.amll-playlist-info {
+	flex: 1;
+}
+
+.amll-playlist-title {
+	min-width: 0;
+	max-width: 100%;
+	overflow: hidden;
+	text-overflow: ellipsis;
+}
+
+.amll-track-row {
+	cursor: default;
+}
+
+.amll-track-row[data-current="true"] {
+	color: var(--accent-11);
+}
+
+.amll-track-row[data-current="true"] .rt-Card {
+	background: var(--accent-a3);
+}
+
+.amll-lyric-page {
+	position: fixed;
+	left: 0;
+	top: 0;
+	width: 100vw;
+	height: 100vh;
+	z-index: 50;
+	isolation: isolate;
+	transform-style: flat;
+	pointer-events: none;
+	background-color: #222;
+	transition: border-radius 0.25s ease, transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+	transform: translateY(100%);
+	border-radius: 1em 1em 0 0;
+	overflow: hidden;
+	color: white;
+}
+
+.amll-lyric-page-opened {
+	pointer-events: auto;
+	transition: border-radius 0.25s 0.25s ease, transform 0.5s cubic-bezier(0.25, 1, 0.5, 1);
+	transform: translateY(0%);
+	border-radius: 0;
+}
+
+.amll-lyric-page > .amll-lyric-player {
+	display: block;
+}
+
+.amll-loading {
+	position: fixed;
+	z-index: 60;
+	left: 50%;
+	transform: translateX(-50%);
+	border: 1px solid var(--gray-6);
+	border-radius: var(--radius-3);
+	background: var(--gray-2);
+	box-shadow: 0 12px 40px #0006;
+}
+
+.amll-loading {
+	bottom: 8.5rem;
+	padding: 8px 14px;
+	color: var(--gray-11);
+}
+
+.amll-theme :focus-visible {
+	outline: 2px solid var(--accent-9);
+	outline-offset: 2px;
+}
+
+@media (prefers-reduced-motion: reduce) {
+	.amll-window-control {
+		transition: none;
+	}
+
+	.amll-window-bar {
+		transition: opacity 180ms ease;
+	}
+
+	.amll-app-body {
+		transition: none;
+		transform: none;
+	}
+
+	.amll-lyric-page {
+		transition: opacity 0.2s ease;
+		transform: none;
+		opacity: 0;
+	}
+
+	.amll-lyric-page-opened {
+		opacity: 1;
+	}
+}
+
+@media (prefers-reduced-motion: reduce) and (hover: hover) and (pointer: fine) {
+	.amll-window-bar-lyrics {
+		transform: none;
+		opacity: 0;
+	}
+
+	.amll-window-bar-lyrics:hover,
+	.amll-window-bar-lyrics:focus-within {
+		opacity: 1;
+	}
+}

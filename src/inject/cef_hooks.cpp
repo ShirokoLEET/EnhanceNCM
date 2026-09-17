@@ -3,6 +3,7 @@
 #include "cef_hooks.h"
 #include "theme_files.h"
 #include "artwork_cache.h"
+#include "now_playing_service.h"
 #include "smtc_timeline.h"
 
 #include "include/capi/cef_app_capi.h"
@@ -11,14 +12,17 @@
 #include "include/capi/cef_v8_capi.h"
 
 #include <atomic>
+#include <algorithm>
 #include <cstdio>
 #include <cstring>
 #include <filesystem>
 #include <fstream>
 #include <iterator>
 #include <mutex>
+#include <stdexcept>
 #include <string>
 #include <string_view>
+#include <array>
 
 namespace {
 
@@ -215,6 +219,48 @@ int CEF_CALLBACK bridge_log_execute(cef_v8handler_t *self,
     }
     return 1;
   }
+  if (name && name->str && std::wstring_view(name->str, name->length) == L"readNowPlayingSettings") {
+    if (arguments_count == 0 && g_create_string && g_utf8_to_utf16) {
+      auto value = enhancencm_now_playing::read_settings();
+      cef_string_utf16_t encoded = {};
+      g_utf8_to_utf16(value.data(), value.size(), &encoded);
+      *retval = g_create_string(&encoded);
+      if (g_utf16_clear) g_utf16_clear(&encoded);
+    } else if (g_utf8_to_utf16) {
+      constexpr char message[] = "Expected no arguments";
+      g_utf8_to_utf16(message, sizeof(message) - 1, exception);
+    }
+    return 1;
+  }
+  if (name && name->str && std::wstring_view(name->str, name->length) == L"configureNowPlayingService") {
+    auto boolean = [](cef_v8value_t *value) {
+      return value && value->is_bool && value->is_bool(value);
+    };
+    if (arguments_count == 2 && boolean(arguments[0]) && boolean(arguments[1])) {
+      enhancencm_now_playing::configure(
+          arguments[0]->get_bool_value(arguments[0]) != 0,
+          arguments[1]->get_bool_value(arguments[1]) != 0);
+    } else if (g_utf8_to_utf16) {
+      constexpr char message[] = "Expected web API and file output boolean settings";
+      g_utf8_to_utf16(message, sizeof(message) - 1, exception);
+    }
+    return 1;
+  }
+  if (name && name->str && std::wstring_view(name->str, name->length) == L"publishNowPlaying") {
+    auto text = [](cef_v8value_t *value) {
+      return value && value->is_string && value->is_string(value);
+    };
+    if (arguments_count == 6 && std::all_of(arguments, arguments + arguments_count, text)) {
+      std::array<std::string, 6> values;
+      for (size_t index = 0; index < values.size(); ++index)
+        values[index] = wide_to_utf8(take_userfree_string(arguments[index]->get_string_value(arguments[index])));
+      enhancencm_now_playing::publish(values[0], values[1], values[2], values[3], values[4], values[5]);
+    } else if (g_utf8_to_utf16) {
+      constexpr char message[] = "Expected six now-playing JSON payloads";
+      g_utf8_to_utf16(message, sizeof(message) - 1, exception);
+    }
+    return 1;
+  }
   if (name && name->str &&
       std::wstring_view(name->str, name->length) == L"cursorPosition") {
     POINT cursor = {};
@@ -291,6 +337,12 @@ void install_bridge(cef_v8context_t *context) {
   g_utf8_to_utf16("log", 3, &log_name);
   cef_string_utf16_t cursor_name = {};
   g_utf8_to_utf16("cursorPosition", 14, &cursor_name);
+  cef_string_utf16_t read_settings_name = {};
+  g_utf8_to_utf16("readNowPlayingSettings", 22, &read_settings_name);
+  cef_string_utf16_t configure_name = {};
+  g_utf8_to_utf16("configureNowPlayingService", 26, &configure_name);
+  cef_string_utf16_t publish_name = {};
+  g_utf8_to_utf16("publishNowPlaying", 17, &publish_name);
 
   cef_v8value_t *ns = g_create_object(nullptr, nullptr);
   cef_v8value_t *log_fn = g_create_function(&log_name, &wrapper->handler);
@@ -315,6 +367,18 @@ void install_bridge(cef_v8context_t *context) {
       if (function) ns->set_value_bykey(ns, &timeline_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
       if (g_utf16_clear) g_utf16_clear(&timeline_name);
     }
+    {
+      auto function = g_create_function(&read_settings_name, &wrapper->handler);
+      if (function) ns->set_value_bykey(ns, &read_settings_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
+    }
+    {
+      auto function = g_create_function(&configure_name, &wrapper->handler);
+      if (function) ns->set_value_bykey(ns, &configure_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
+    }
+    {
+      auto function = g_create_function(&publish_name, &wrapper->handler);
+      if (function) ns->set_value_bykey(ns, &publish_name, function, V8_PROPERTY_ATTRIBUTE_NONE);
+    }
     global->set_value_bykey(global, &namespace_name, ns,
                             V8_PROPERTY_ATTRIBUTE_NONE);
   }
@@ -323,6 +387,9 @@ void install_bridge(cef_v8context_t *context) {
     g_utf16_clear(&namespace_name);
     g_utf16_clear(&log_name);
     g_utf16_clear(&cursor_name);
+    g_utf16_clear(&read_settings_name);
+    g_utf16_clear(&configure_name);
+    g_utf16_clear(&publish_name);
   }
 }
 
@@ -336,14 +403,15 @@ void inject_page_script(cef_v8context_t *context) {
   std::string script;
   auto directory = module_directory(g_self);
   if (!directory.empty()) {
-    auto sdk = read_file(directory / L"EnhanceNCM-sdk.js");
-    auto host = read_file(directory / L"EnhanceNCM-page.js");
+    auto script_directory = directory / L"EnhanceNCM";
+    auto sdk = read_file(script_directory / L"EnhanceNCM-sdk.js");
+    auto host = read_file(script_directory / L"EnhanceNCM-page.js");
     if (!sdk.empty() && !host.empty()) {
       script = sdk + "\nEnhanceNCM._themeCatalog = " +
-          enhancencm_themes::catalog(module_directory(nullptr) / L"EnhanceNCM") +
+          enhancencm_themes::catalog(module_directory(nullptr) / L"EnhanceNCM" / L"Themes") +
           ";\n" + host;
     } else {
-      append_log("Missing EnhanceNCM-sdk.js or EnhanceNCM-page.js");
+      append_log("Missing EnhanceNCM/EnhanceNCM-sdk.js or EnhanceNCM/EnhanceNCM-page.js");
     }
   }
   if (script.empty()) {
@@ -496,6 +564,7 @@ void cef_hooks::install(HMODULE self) {
   }
 
   g_self = self;
+  enhancencm_now_playing::initialize(module_directory(self).wstring());
 
   HMODULE libcef = GetModuleHandleW(L"libcef.dll");
   if (!libcef) {

@@ -21,4 +21,9 @@ function walk(directory) {
 for (const file of walk(path.join(root, 'src')).filter(file => file.endsWith('.js') && !file.includes(`${path.sep}inject${path.sep}`))) {
   assert.ok(seen.has(path.relative(root, file).split(path.sep).join('/')), `Unbundled source: ${file}`);
 }
+for (const file of walk(path.join(root, 'src/themes/amll')).filter(file => /\.(?:tsx|mjs)$/.test(file))) {
+  const source = fs.readFileSync(file, 'utf8');
+  assert.ok(!/EnhanceNCM\._|sdk\._|legacyNativeCmder|APP_CONF/.test(source), `AMLL uses private services: ${file}`);
+  assert.ok(!/from\s+['"][^'"]*(?:sdk|host|spotify)\//.test(source), `AMLL imports another layer: ${file}`);
+}
 console.log(`Architecture and syntax verified: ${seen.size} modules across SDK, host and theme layers.`);
